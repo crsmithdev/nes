@@ -1,25 +1,24 @@
 use crate::Id;
 use cocoa::{
     appkit::{NSApplication, NSApplicationActivateIgnoringOtherApps, NSColor, NSMenu, NSMenuItem},
-    base::{nil, selector, NO, YES},
+    base::{nil, selector, BOOL, NO, YES},
     foundation::{
         NSAutoreleasePool, NSPoint, NSProcessInfo, NSRange, NSRect, NSSize, NSString, NSUInteger,
     },
 };
 use core_foundation::base::ToVoid;
-use core_graphics::{data_provider::CGDataProvider, font::CGFont};
+use core_graphics::{color::CGColor, data_provider::CGDataProvider, font::CGFont};
 use core_text::font::CTFont;
 use std::{fs, fs::File, io::Read, sync::Arc};
 use winit::{platform::macos::WindowExtMacOS, window::Window};
 
-//#[link(name = "AppKit", kind = "framework")]
 extern "C" {
     pub static NSFontAttributeName: Id;
     pub static NSForegroundColorAttributeName: Id;
     pub static NSZeroRect: NSRect;
 }
 
-macro_rules! msg_yeet {
+macro_rules! msg_sendf {
     ($obj:expr, $name:ident) => ({
         let _: Id = msg_send!($obj, $name);
     });
@@ -29,6 +28,60 @@ macro_rules! msg_yeet {
 }
 
 const LINE_HEIGHT: f64 = 20.;
+
+pub struct Rect {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
+
+pub struct Color {
+    r: f64,
+    g: f64,
+    b: f64,
+    a: f64,
+}
+
+pub trait Label {
+    fn new() -> Self;
+    fn set_position(&self, rect: Rect);
+    fn hide(&self);
+    fn show(&self);
+    fn set_color(&self, color: Color);
+    fn set_text(&self, string: impl Into<String>);
+}
+
+pub struct NSTextView {
+    ptr: Id,
+}
+
+impl NSTextView {
+    pub fn new() -> Self {
+        let ptr = unsafe {
+            let alloc: Id = msg_send![class!(NSTextView), alloc];
+            let init: Id = msg_send![alloc, initWithFrame: NSZeroRect];
+            init
+        };
+        NSTextView { ptr }
+    }
+
+    pub unsafe fn id(&self) -> Id {
+        self.ptr
+    }
+
+    pub unsafe fn set_frame(&mut self, rect: NSRect) {
+        msg_sendf![self.ptr, setFrame: rect];
+    }
+
+    pub unsafe fn set_hidden(&mut self, hidden: BOOL) {
+        msg_sendf![self.ptr, setHidden: hidden];
+    }
+
+    pub unsafe fn set_background_color(&mut self, color: impl NSColor) {
+        msg_sendf![self.ptr, setBackgroundColor: color];
+    }
+}
 
 pub struct InstructionView {
     window: Window,
@@ -50,6 +103,8 @@ impl InstructionView {
             font
         };
 
+        println!("{:?}", window.scale_factor());
+
         let mut view = InstructionView {
             window,
             lines: vec![],
@@ -60,15 +115,13 @@ impl InstructionView {
     }
 
     fn alloc_lines(&mut self, n_lines: i32) {
-        // TODO autorelease
-        // TODO pool
         let view = self.window.ns_view() as Id;
 
         let lines = (0..n_lines)
             .map(|_| unsafe {
                 let alloc: Id = msg_send![class!(NSTextView), alloc];
                 let text_view: Id = msg_send![alloc, initWithFrame: NSZeroRect];
-                msg_yeet![view, addSubview: text_view];
+                msg_sendf![view, addSubview: text_view];
                 text_view
             })
             .collect();
@@ -77,47 +130,49 @@ impl InstructionView {
     }
 
     pub fn update(&mut self, bytes: &[u8]) {
-        // TODO autorelease
-        let height = self.window.inner_size().height / 2;
-        let width = self.window.inner_size().width / 2;
-        let n_lines = self.window.inner_size().height / (LINE_HEIGHT as u32) / 2; // TODO hidpi
+        let scale = self.window.scale_factor();
+        let size = self.window.inner_size();
+        let height = size.height as f64 / scale;
+        let width = size.width as f64 / scale;
+        let n_lines = (height / LINE_HEIGHT) as usize;
+        let color = unsafe { NSColor::colorWithRed_green_blue_alpha_(nil, 1., 1., 1., 1.) };
+
         for i in 0..self.lines.len() {
             let text_view = self.lines[i];
-            if i < (n_lines as usize) {
+
+            if i < n_lines {
                 let (inst_0, inst_1) = match i * 2 {
                     j if j < bytes.len() - 1 => (bytes[j], bytes[j + 1]),
                     j if j < bytes.len() => (bytes[j], 0u8),
                     _ => (0u8, 0u8),
                 };
                 let text = format!("{:04} {:02X?}{:02X?} TODO", i, inst_0, inst_1);
+                let length = text.len() as u64;
+                let range_all = NSRange::new(0, length);
+                let font = self.font.to_void();
                 let rect = NSRect::new(
                     NSPoint::new(0., (height as f64) - (i as f64) * LINE_HEIGHT - LINE_HEIGHT),
                     NSSize::new(width as f64, LINE_HEIGHT),
                 );
 
                 unsafe {
-                    let _: Id = msg_send![text_view, setFrame: rect];
-                    let _: Id = msg_send![text_view, setHidden: NO];
-                    let _: Id = msg_send![text_view, setBackgroundColor: NSColor::clearColor(nil)];
-                    let f = self.font.to_void();
+                    let storage: Id = msg_send![text_view, textStorage];
                     let string: Id = {
                         let s1: Id = NSString::alloc(nil).init_str(&text).autorelease();
                         let s2: Id = msg_send![class!(NSMutableAttributedString), alloc];
                         msg_send![s2, initWithString: s1]
                     };
-                    let length: u64 = msg_send![string, length];
-                    let range_all = NSRange::new(0, length);
-                    let storage: Id = msg_send![text_view, textStorage];
-                    let _: Id =
-                        msg_send![string, addAttribute:NSFontAttributeName value:f range:range_all];
-                    let color = NSColor::colorWithRed_green_blue_alpha_(nil, 1., 1., 1., 1.);
-                    let _: Id = msg_send![string, addAttribute:NSForegroundColorAttributeName value:color range:range_all];
-                    let _: Id = msg_send![storage, setAttributedString: string];
+                    msg_sendf![text_view, setFrame: rect];
+                    msg_sendf![text_view, setHidden: NO];
+                    msg_sendf![text_view, setBackgroundColor: NSColor::clearColor(nil)];
+                    msg_sendf![string, addAttribute:NSFontAttributeName value:font range:range_all];
+                    msg_sendf![string, addAttribute:NSForegroundColorAttributeName value:color range:range_all];
+                    msg_sendf![storage, setAttributedString: string];
                 }
             } else {
                 unsafe {
-                    let _: Id = msg_send![text_view, setHidden: YES];
-                    let _: Id = msg_send![text_view, setFrame: NSZeroRect];
+                    msg_sendf![text_view, setHidden: YES];
+                    msg_sendf![text_view, setFrame: NSZeroRect];
                 }
             }
         }
@@ -164,13 +219,13 @@ pub fn activate() {
             // TODO
         } else {
             let dock: Id = msg_send![dock_array, objectAtIndex: 0];
-            let _: Id = msg_send![
+            msg_sendf![
                 dock,
                 activateWithOptions: NSApplicationActivateIgnoringOtherApps
             ];
             // TODO fail
         }
-        let _: Id = msg_send![
+        msg_sendf![
             app,
             activateWithOptions: NSApplicationActivateIgnoringOtherApps
         ];
