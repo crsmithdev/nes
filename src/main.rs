@@ -9,8 +9,10 @@ extern crate nfd;
 
 use gfx_hal::{prelude::*, window::Extent2D};
 
+mod base;
 mod graphics;
 mod logger;
+mod platform;
 mod rom;
 mod ui;
 
