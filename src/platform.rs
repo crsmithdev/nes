@@ -1,15 +1,27 @@
-use crate::base::{Color, Font, Label, Rect};
-use crate::Id;
+use crate::base::{Color, Container, Font, Label, Menu, OSPtr, Rect, UIObject, View};
 use cocoa::{
-    appkit::NSColor,
-    base::{nil, BOOL, NO, YES},
-    foundation::{NSPoint, NSRange, NSRect, NSSize, NSString},
+    appkit::{NSApplication, NSApplicationActivateIgnoringOtherApps, NSColor, NSMenu, NSMenuItem},
+    base::{nil, selector, NO, YES},
+    foundation::{
+        NSAutoreleasePool, NSPoint, NSProcessInfo, NSRange, NSRect, NSSize, NSString, NSUInteger,
+    },
 };
-use core_graphics::{data_provider::CGDataProvider, font::CGFont};
-use std::{fs, fs::File, io::Read, sync::Arc};
-
 use core_foundation::base::ToVoid;
+use core_graphics::{data_provider::CGDataProvider, font::CGFont};
 use core_text::font::CTFont;
+use std::{fs, fs::File, io::Read, sync::Arc};
+use winit::{platform::macos::WindowExtMacOS, window::Window};
+
+pub type Id = *mut objc::runtime::Object;
+lazy_static! {
+    static ref DEFAULT_FONT: OSFont = OSFont::from_file("./data/SourceCodePro-Regular.ttf");
+    static ref DEFAULT_COLOR: Color = Color {
+        r: 1.,
+        g: 1.,
+        b: 1.,
+        a: 1.
+    };
+}
 
 extern "C" {
     pub static NSFontAttributeName: Id;
@@ -26,78 +38,122 @@ macro_rules! msg_sendf {
     });
 }
 
-pub struct NSFont {
-    font: CTFont,
+pub struct OSView {
+    ptr: Id,
 }
 
-impl Font for NSFont {
-    fn from_file(_file: &str) -> NSFont {
-        let filename = "./data/SourceCodePro-Regular.ttf";
-        let font = {
-            let mut f = File::open(&filename).expect("no file found");
-            let metadata = fs::metadata(&filename).expect("unable to read metadata");
-            let mut bytes = vec![0; metadata.len() as usize];
-            f.read(&mut bytes).expect("buffer overflow");
-            let provider = CGDataProvider::from_buffer(Arc::new(bytes.clone()));
-            let cgfont = CGFont::from_data_provider(provider).unwrap();
-            let font: CTFont = core_text::font::new_from_CGFont(&cgfont, 13.);
-            font
-        };
-        NSFont { font }
+impl View for OSView {}
+
+impl OSView {
+    pub fn from_window(window: &Window) -> OSView {
+        Self {
+            ptr: window.ns_view() as Id,
+        }
     }
 }
 
-impl NSFont {
+impl UIObject for OSView {
+    fn from_ptr(ptr: OSPtr) -> Self {
+        Self { ptr: ptr as Id }
+    }
+
+    fn ptr(&self) -> OSPtr {
+        self.ptr as OSPtr
+    }
+}
+
+impl Container for OSView {
+    fn add_subview(&mut self, view: &impl View) {
+        unsafe { msg_sendf!(self.ptr, addSubview: view.ptr()) }
+    }
+}
+
+pub struct OSFont {
+    font: CTFont,
+}
+
+impl Font for OSFont {
+    fn from_file(filename: &str) -> Self {
+        let font = {
+            let mut file = File::open(&filename).unwrap();
+            let metadata = fs::metadata(&filename).unwrap();
+            let mut bytes = vec![0; metadata.len() as usize];
+            file.read(&mut bytes).expect("buffer overflow");
+
+            let provider = CGDataProvider::from_buffer(Arc::new(bytes.clone()));
+            let cgfont = CGFont::from_data_provider(provider).unwrap();
+            let font = core_text::font::new_from_CGFont(&cgfont, 13.);
+            font
+        };
+        Self { font }
+    }
+}
+
+impl OSFont {
     pub fn inner(&self) -> *const std::ffi::c_void {
         self.font.to_void()
     }
 }
 
-pub struct NSTextViewLabel {
-    view: NSTextView,
+pub struct OSLabel {
+    ptr: Id,
     color: Color,
-    font: NSFont,
+    font: &'static OSFont,
 }
 
-impl Label for NSTextViewLabel {
-    type F = NSFont;
+impl View for OSLabel {}
+
+impl UIObject for OSLabel {
+    fn from_ptr(_ptr: OSPtr) -> Self {
+        unimplemented!()
+    }
+    fn ptr(&self) -> OSPtr {
+        self.ptr as OSPtr
+    }
+}
+
+impl Label for OSLabel {
+    type F = OSFont;
 
     fn new() -> Self {
-        NSTextViewLabel {
-            view: unsafe { NSTextView::init_with_frame(NSZeroRect) },
-            color: Color {
-                r: 1.,
-                g: 1.,
-                b: 1.,
-                a: 1.,
-            },
-            font: NSFont::from_file("./data/SourceCodePro-Regular.ttf"),
+        let ptr = unsafe {
+            let alloc: Id = msg_send![class!(NSTextView), alloc];
+            let view: Id = msg_send![alloc, initWithFrame: NSZeroRect];
+            msg_sendf![view, setBackgroundColor: NSColor::clearColor(nil)];
+            view
+        };
+        //let view = unsafe { NSTextView::init_with_frame(NSZeroRect) };
+
+        Self {
+            ptr,
+            color: *DEFAULT_COLOR,
+            font: &*DEFAULT_FONT,
         }
     }
 
-    fn inner(&self) -> *mut std::ffi::c_void {
-        unsafe { self.view.id() as *mut std::ffi::c_void }
+    fn inner(&self) -> OSPtr {
+        self.ptr as OSPtr
     }
 
-    fn set_position(&mut self, rect: Rect) {
-        let nsrect = NSRect::new(
+    fn set_rect(&mut self, rect: Rect) {
+        let ns_rect = NSRect::new(
             NSPoint::new(rect.x, rect.y),
             NSSize::new(rect.width, rect.height),
         );
         unsafe {
-            self.view.set_frame(nsrect);
+            msg_sendf![self.ptr, setFrame: ns_rect];
         }
     }
 
     fn hide(&mut self) {
         unsafe {
-            self.view.set_hidden(YES);
+            msg_sendf![self.ptr, setHidden: YES];
         }
     }
 
     fn show(&mut self) {
         unsafe {
-            self.view.set_hidden(NO);
+            msg_sendf![self.ptr, setHidden: NO];
         }
     }
 
@@ -107,80 +163,81 @@ impl Label for NSTextViewLabel {
 
     fn set_text(&mut self, text: &str) {
         let range = NSRange::new(0, text.len() as u64);
-        let font = self.font.inner();
-        let color = unsafe {
-            NSColor::colorWithRed_green_blue_alpha_(
+
+        unsafe {
+            let color = NSColor::colorWithRed_green_blue_alpha_(
                 nil,
                 self.color.r,
                 self.color.g,
                 self.color.b,
                 self.color.a,
-            )
-        };
-        unsafe {
-            let mut string = NSMutableAttributedString::init_with_string(text);
-            string.add_attribute(NSFontAttributeName, font, range);
-            string.add_attribute(NSForegroundColorAttributeName, color, range);
+            );
+            let string: Id = {
+                let s1: Id = NSString::alloc(nil).init_str(text.into());
+                let s2: Id = msg_send![class!(NSMutableAttributedString), alloc];
+                msg_send![s2, initWithString: s1]
+            };
+            msg_sendf![string, addAttribute:NSFontAttributeName value:self.font.inner() range:range];
+            msg_sendf![string, addAttribute:NSForegroundColorAttributeName value:color range:range];
+            let storage: Id = msg_send![self.ptr, textStorage];
+            msg_sendf![storage, setAttributedString: string];
         }
     }
 
-    fn set_font(&mut self, font: Self::F) {
-        self.font = font;
+    // fn set_font(&mut self, font: &Self::F) {
+    //     self.font = Some(font.inner() as OSPtr);
+    // }
+}
+
+pub struct OSMenu {}
+
+impl Menu for OSMenu {
+    fn new() -> Self {
+        unsafe {
+            let _pool = NSAutoreleasePool::new(nil);
+            let app = cocoa::appkit::NSApp();
+            let menubar = cocoa::appkit::NSMenu::new(nil).autorelease();
+            let app_menu_item = NSMenuItem::new(nil).autorelease();
+            let app_menu = NSMenu::new(nil).autorelease();
+            let quit_prefix = NSString::alloc(nil).init_str("Quit ");
+            let quit_title =
+                quit_prefix.stringByAppendingString_(NSProcessInfo::processInfo(nil).processName());
+            let quit_action = selector("terminate:");
+            let quit_key = NSString::alloc(nil).init_str("q");
+            let quit_item = NSMenuItem::alloc(nil)
+                .initWithTitle_action_keyEquivalent_(quit_title, quit_action, quit_key)
+                .autorelease();
+            menubar.addItem_(app_menu_item);
+            app_menu.addItem_(quit_item);
+            app_menu_item.setSubmenu_(app_menu);
+            app.setMainMenu_(menubar);
+        }
+        Self {}
     }
 }
 
-pub struct NSMutableAttributedString {
-    ptr: Id,
-}
-
-impl NSMutableAttributedString {
-    pub unsafe fn init_with_string(string: impl Into<String>) -> Self {
-        let ptr = {
-            let s1: Id = NSString::alloc(nil).init_str(&string.into());
-            let s2: Id = msg_send![class!(NSMutableAttributedString), alloc];
-            msg_send![s2, initWithString: s1]
-        };
-        NSMutableAttributedString { ptr }
-    }
-
-    pub unsafe fn id(&self) -> Id {
-        self.ptr
-    }
-
-    pub unsafe fn add_attribute<T>(&mut self, name: Id, value: T, range: NSRange) {
-        msg_sendf![self.ptr, addAttribute:name value:value range:range];
-    }
-}
-
-pub struct NSTextView {
-    ptr: Id,
-}
-
-impl NSTextView {
-    pub unsafe fn init_with_frame(rect: NSRect) -> Self {
-        let ptr = {
-            let alloc: Id = msg_send![class!(NSTextView), alloc];
-            let view: Id = msg_send![alloc, initWithFrame: rect];
-            msg_sendf![view, setBackgroundColor: NSColor::clearColor(nil)];
-            view
-        };
-        NSTextView { ptr }
-    }
-
-    pub unsafe fn id(&self) -> Id {
-        self.ptr
-    }
-
-    pub unsafe fn set_frame(&mut self, rect: NSRect) {
-        msg_sendf![self.ptr, setFrame: rect];
-    }
-
-    pub unsafe fn set_hidden(&mut self, hidden: BOOL) {
-        msg_sendf![self.ptr, setHidden: hidden];
-    }
-
-    pub unsafe fn set_attributed_string(&mut self, string: &NSMutableAttributedString) {
-        let storage: Id = msg_send![self.id(), textStorage];
-        msg_sendf![storage, setAttributedString: string.id()];
+pub fn activate() {
+    unsafe {
+        let app: Id = msg_send![class!(NSRunningApplication), currentApplication];
+        let dock_bundle_id = NSString::alloc(nil).init_str("com.apple.dock");
+        let dock_array: Id = msg_send![
+            class!(NSRunningApplication),
+            runningApplicationsWithBundleIdentifier: dock_bundle_id
+        ];
+        let dock_array_len: NSUInteger = msg_send![dock_array, count];
+        if dock_array_len == 0 {
+            // TODO
+        } else {
+            let dock: Id = msg_send![dock_array, objectAtIndex: 0];
+            msg_sendf![
+                dock,
+                activateWithOptions: NSApplicationActivateIgnoringOtherApps
+            ];
+            // TODO fail
+        }
+        msg_sendf![
+            app,
+            activateWithOptions: NSApplicationActivateIgnoringOtherApps
+        ];
     }
 }
