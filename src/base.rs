@@ -1,21 +1,40 @@
 pub type OSPtr = *mut std::ffi::c_void;
 
+#[macro_export]
+macro_rules! rect {
+    ($x: expr, $y: expr, $width:expr, $height:expr) => {{
+        Rect {
+            x: $x,
+            y: $y,
+            width: $width,
+            height: $height,
+        }
+    }};
+}
+
+macro_rules! hex2f {
+    ($v:expr) => {
+        &format!("{:02X}", $v)
+    };
+}
+
+macro_rules! hex4f {
+    ($v:expr) => {
+        &format!("{:04X}", $v)
+    };
+}
+
+macro_rules! bitf {
+    ($v:expr) => {
+        &format!("{}", $v as bool as u8)
+    };
+}
+
 pub struct Rect {
     pub x: f64,
     pub y: f64,
     pub width: f64,
     pub height: f64,
-}
-
-impl Rect {
-    pub fn new(x: f64, y: f64, width: f64, height: f64) -> Self {
-        Self {
-            x,
-            y,
-            width,
-            height,
-        }
-    }
 }
 
 #[derive(Clone, Copy)]
@@ -41,16 +60,16 @@ pub trait Menu {
     fn new() -> Self;
 }
 
-pub trait Label {
+pub trait Label: UIObject {
     type F: Font;
 
     fn new() -> Self;
+    fn from_container(container: &mut impl Container) -> Self;
     fn set_rect(&mut self, rect: Rect);
     fn hide(&mut self);
     fn show(&mut self);
-    fn set_color(&mut self, color: Color);
+    fn highlight(&mut self, value: bool);
     fn set_text(&mut self, text: &str);
-    fn inner(&self) -> OSPtr;
 }
 
 pub trait Font {

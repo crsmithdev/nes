@@ -49,7 +49,7 @@ const COLOR_RANGE: i::SubresourceRange = i::SubresourceRange {
 };
 
 pub struct Renderer<B: gfx_hal::Backend> {
-    _window: winit::window::Window,
+    pub window: winit::window::Window,
     instance: Option<B::Instance>,
     device: B::Device,
     queue_group: QueueGroup<B>,
@@ -170,7 +170,6 @@ where
         let desc_set = unsafe { desc_pool.allocate_set(&set_layout) }.unwrap();
 
         // Buffer allocations
-        println!("Memory types: {:?}", memory_types);
         let non_coherent_alignment = limits.non_coherent_atom_size as u64;
 
         let buffer_stride = mem::size_of::<Vertex>() as u64;
@@ -404,7 +403,6 @@ where
 
         let caps = surface.capabilities(&adapter.physical_device);
         let formats = surface.supported_formats(&adapter.physical_device);
-        println!("formats: {:?}", formats);
         let format = formats.map_or(f::Format::Rgba8Srgb, |formats| {
             formats
                 .iter()
@@ -419,7 +417,6 @@ where
             height: size.height,
         };
         let swap_config = window::SwapchainConfig::from_caps(&caps, format, dims);
-        println!("{:?}", swap_config);
         let extent = swap_config.extent;
         unsafe {
             surface
@@ -606,7 +603,7 @@ where
         };
 
         Renderer {
-            _window: window,
+            window: window,
             instance: Some(instance),
             device,
             queue_group,
@@ -641,7 +638,6 @@ where
     pub fn recreate_swapchain(&mut self) {
         let caps = self.surface.capabilities(&self.adapter.physical_device);
         let swap_config = window::SwapchainConfig::from_caps(&caps, self.format, self.dimensions);
-        println!("{:?}", swap_config);
         let extent = swap_config.extent.to_extent();
 
         unsafe {
@@ -820,6 +816,5 @@ where
                 instance.destroy_surface(surface);
             }
         }
-        println!("DROPPED!");
     }
 }

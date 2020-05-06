@@ -11,14 +11,22 @@ use core_graphics::{data_provider::CGDataProvider, font::CGFont};
 use core_text::font::CTFont;
 use std::{fs, fs::File, io::Read, sync::Arc};
 use winit::{platform::macos::WindowExtMacOS, window::Window};
+// 42 46 63 165 170 205
+// 0.132, 0.144, .148
 
 pub type Id = *mut objc::runtime::Object;
 lazy_static! {
     static ref DEFAULT_FONT: OSFont = OSFont::from_file("./data/SourceCodePro-Regular.ttf");
-    static ref DEFAULT_COLOR: Color = Color {
-        r: 1.,
-        g: 1.,
-        b: 1.,
+    static ref DEFAULT_BACKGROUND_COLOR: Color = Color {
+        r: 42. / 255.,
+        g: 46. / 255.,
+        b: 63. / 255.,
+        a: 1.
+    };
+    static ref DEFAULT_TEXT_COLOR: Color = Color {
+        r: 165. / 255.,
+        g: 170. / 255.,
+        b: 205. / 255.,
         a: 1.
     };
 }
@@ -46,15 +54,29 @@ impl View for OSView {}
 
 impl OSView {
     pub fn from_window(window: &Window) -> OSView {
-        Self {
-            ptr: window.ns_view() as Id,
+        unsafe {
+            let ptr = window.ns_view() as Id;
+            let color = *DEFAULT_BACKGROUND_COLOR;
+            let bg_color = NSColor::colorWithSRGBRed_green_blue_alpha_(
+                nil, color.r, color.g, color.b, color.a,
+            );
+            msg_sendf![ptr, setBackgroundColor: bg_color];
+            Self { ptr }
         }
     }
 }
 
 impl UIObject for OSView {
     fn from_ptr(ptr: OSPtr) -> Self {
-        Self { ptr: ptr as Id }
+        unsafe {
+            let id = ptr as Id;
+            let color = *DEFAULT_BACKGROUND_COLOR;
+            let bg_color = NSColor::colorWithSRGBRed_green_blue_alpha_(
+                nil, color.r, color.g, color.b, color.a,
+            );
+            msg_sendf![id, setBackgroundColor: bg_color];
+            Self { ptr: id }
+        }
     }
 
     fn ptr(&self) -> OSPtr {
@@ -97,7 +119,9 @@ impl OSFont {
 
 pub struct OSLabel {
     ptr: Id,
-    color: Color,
+    text: String,
+    text_color: Color,
+    background_color: Color,
     font: &'static OSFont,
 }
 
@@ -107,6 +131,7 @@ impl UIObject for OSLabel {
     fn from_ptr(_ptr: OSPtr) -> Self {
         unimplemented!()
     }
+
     fn ptr(&self) -> OSPtr {
         self.ptr as OSPtr
     }
@@ -122,18 +147,27 @@ impl Label for OSLabel {
             msg_sendf![view, setBackgroundColor: NSColor::clearColor(nil)];
             view
         };
-        //let view = unsafe { NSTextView::init_with_frame(NSZeroRect) };
-
-        Self {
-            ptr,
-            color: *DEFAULT_COLOR,
+        let mut label = OSLabel {
+            ptr: ptr,
+            text: " ".to_owned(),
+            text_color: *DEFAULT_TEXT_COLOR,
+            background_color: *DEFAULT_BACKGROUND_COLOR,
             font: &*DEFAULT_FONT,
-        }
+        };
+
+        label.update_string();
+        label
     }
 
-    fn inner(&self) -> OSPtr {
-        self.ptr as OSPtr
+    fn from_container(container: &mut impl Container) -> Self {
+        let label = OSLabel::new();
+        container.add_subview(&label);
+        label
     }
+
+    // fn inner(&self) -> OSPtr {
+    //     self.ptr as OSPtr
+    // }
 
     fn set_rect(&mut self, rect: Rect) {
         let ns_rect = NSRect::new(
@@ -157,36 +191,53 @@ impl Label for OSLabel {
         }
     }
 
-    fn set_color(&mut self, color: Color) {
-        self.color = color;
+    fn highlight(&mut self, value: bool) {
+        if value {
+            self.text_color = *DEFAULT_BACKGROUND_COLOR;
+            self.background_color = *DEFAULT_TEXT_COLOR;
+        } else {
+            self.text_color = *DEFAULT_TEXT_COLOR;
+            self.background_color = *DEFAULT_BACKGROUND_COLOR;
+        }
+        self.update_string();
     }
 
     fn set_text(&mut self, text: &str) {
-        let range = NSRange::new(0, text.len() as u64);
+        self.text = text.to_owned();
+        self.update_string();
+    }
+}
 
+impl OSLabel {
+    fn update_string(&mut self) {
+        let range = NSRange::new(0, self.text.len() as u64);
         unsafe {
-            let color = NSColor::colorWithRed_green_blue_alpha_(
+            let fg_color = NSColor::colorWithSRGBRed_green_blue_alpha_(
                 nil,
-                self.color.r,
-                self.color.g,
-                self.color.b,
-                self.color.a,
+                self.text_color.r,
+                self.text_color.g,
+                self.text_color.b,
+                self.text_color.a,
+            );
+            let bg_color = NSColor::colorWithSRGBRed_green_blue_alpha_(
+                nil,
+                self.background_color.r,
+                self.background_color.g,
+                self.background_color.b,
+                self.background_color.a,
             );
             let string: Id = {
-                let s1: Id = NSString::alloc(nil).init_str(text.into());
+                let s1: Id = NSString::alloc(nil).init_str(&self.text);
                 let s2: Id = msg_send![class!(NSMutableAttributedString), alloc];
                 msg_send![s2, initWithString: s1]
             };
             msg_sendf![string, addAttribute:NSFontAttributeName value:self.font.inner() range:range];
-            msg_sendf![string, addAttribute:NSForegroundColorAttributeName value:color range:range];
+            msg_sendf![string, addAttribute:NSForegroundColorAttributeName value:fg_color range:range];
             let storage: Id = msg_send![self.ptr, textStorage];
             msg_sendf![storage, setAttributedString: string];
+            msg_sendf![self.ptr, setBackgroundColor: bg_color];
         }
     }
-
-    // fn set_font(&mut self, font: &Self::F) {
-    //     self.font = Some(font.inner() as OSPtr);
-    // }
 }
 
 pub struct OSMenu {}
