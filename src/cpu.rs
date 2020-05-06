@@ -202,12 +202,6 @@ impl CPU {
                     self.pc += 1;
                     self.set_addr16(self.pc);
                 }
-
-                // self.t = match self.current.bytes {
-                //     1 | 2 => 0,
-                //     3 => self.t + 1,
-                //     _ => bail!(CPUErrorKind::ExecutionTiming(self.current, self.t)),
-                // };
                 result
             }
             _ => bail!(CPUErrorKind::ExecutionTiming(self.current, self.t)),
@@ -229,7 +223,7 @@ impl CPU {
                     0x38 => self.flags.c = true,  // SEC
                     0x58 => self.flags.i = false, // CLI
                     0x78 => self.flags.i = true,  // SEI
-                    0xB8 => self.flags.v = false, // CLV
+                    0xB8 => self.flags.n = false, // CLV
                     0xD8 => self.flags.d = false, // CLD
                     0xF8 => self.flags.d = true,  // SED
                     _ => bail!(CPUErrorKind::UnexpectedInstruction(op)),
@@ -387,8 +381,8 @@ pub fn decode_all(bytes: &[u8]) -> CPUResult<Vec<(u16, Instruction)>> {
 
 pub fn decode_bytes(bytes: &[u8], address: usize) -> CPUResult<Instruction> {
     let (opcode, arg_1, arg_2) = match address {
-        o if o < bytes.len() - 2 => (bytes[o], bytes[o + 1], bytes[o + 2]),
-        o if o < bytes.len() - 1 => (bytes[o], bytes[o + 1], 0),
+        o if o + 2 < bytes.len() => (bytes[o], bytes[o + 1], bytes[o + 2]),
+        o if o + 1 < bytes.len() => (bytes[o], bytes[o + 1], 0),
         o if o < bytes.len() => (bytes[o], 0, 0),
         _ => (0, 0, 0),
     };
@@ -594,7 +588,9 @@ mod test {
         let length = instructions.iter().map(|i| i.1.cycles).sum();
 
         for _ in 0..length {
-            cpu.pins.data = memory[cpu.pins.addr as usize];
+            if (cpu.pins.addr as usize) < memory.len() {
+                cpu.pins.data = memory[cpu.pins.addr as usize];
+            }
             if let Err(e) = cpu.cycle() {
                 panic!("error: {}", e.description());
             }
@@ -631,95 +627,22 @@ mod test {
     #[test]
     fn test_ld_zeropage() {
         // LDA $zp, LDX $zp, LDY $zp
-        run_test(
-            &[0xA5, 3, 0xA6, 5, 0xA4, 1],
-            // &[0xA4, 0x03, 0xEA, 0xED],
-            |cpu| {
-                assert_eq!(cpu.a, 5);
-                assert_eq!(cpu.x, 1);
-                assert_eq!(cpu.y, 3);
-            },
-        );
+        run_test(&[0xA5, 3, 0xA6, 5, 0xA4, 1], |cpu| {
+            assert_eq!(cpu.a, 5);
+            assert_eq!(cpu.x, 1);
+            assert_eq!(cpu.y, 3);
+        });
     }
 
-    // // LDA $zp
-    // 0xA5 => match self.t {
-    //     1 => self.set_addr8(self.pins.data),
-    //     2 => self.set_a(byte),
-    //     _ => bail!(CPUErrorKind::ExecutionTiming(inst, t)),
-    // },
-    // // LDX $zp
-    // 0xA6 => match self.t {
-    //     1 => self.set_addr8(self.pins.data),
-    //     2 => self.set_x(byte),
-    //     _ => bail!(CPUErrorKind::ExecutionTiming(inst, t)),
-    // },
-    // // LDY $zp
-    // 0xA4 => match self.t {
-    //     1 => self.set_addr8(self.pins.data),
-    //     2 => self.set_y(byte),
-    //     _ => bail!(CPUErrorKind::ExecutionTiming(inst, t)),
-    // },
-
-    // #[test]
-    // fn test_set_flags() {
-    //     let mut cpu = CPU::new();
-
-    //     cpu.flags.d = false;
-    //     cpu.flags.i = false;
-    //     cpu.flags.v = false;
-    //     cpu.flags.c = false;
-
-    //     cpu.pins.data = 0xF8; // SED
-    //     assert!(cpu.cycle().is_ok());
-    //     assert!(cpu.cycle().is_ok());
-    //     assert_eq!(cpu.flags.d, true);
-    //     assert_eq!(cpu.t, 0);
-
-    //     cpu.pins.data = 0x38; // SEC
-    //     assert!(cpu.cycle().is_ok());
-    //     assert!(cpu.cycle().is_ok());
-    //     assert_eq!(cpu.flags.c, true);
-    //     assert_eq!(cpu.t, 0);
-
-    //     cpu.pins.data = 0x78; // SEI
-    //     assert!(cpu.cycle().is_ok());
-    //     assert!(cpu.cycle().is_ok());
-    //     assert_eq!(cpu.flags.i, true);
-    //     assert_eq!(cpu.t, 0);
-    // }
-
-    // #[test]
-    // fn test_clear_flags() {
-    //     let mut cpu = CPU::new();
-
-    //     cpu.flags.d = true;
-    //     cpu.flags.i = true;
-    //     cpu.flags.v = true;
-    //     cpu.flags.c = true;
-
-    //     cpu.pins.data = 0xD8; // CLD
-    //     assert!(cpu.cycle().is_ok());
-    //     assert!(cpu.cycle().is_ok());
-    //     assert_eq!(cpu.flags.d, false);
-    //     assert_eq!(cpu.t, 0);
-
-    //     cpu.pins.data = 0x18; // CLC
-    //     assert!(cpu.cycle().is_ok());
-    //     assert!(cpu.cycle().is_ok());
-    //     assert_eq!(cpu.flags.c, false);
-    //     assert_eq!(cpu.t, 0);
-
-    //     cpu.pins.data = 0x58; // CLI
-    //     assert!(cpu.cycle().is_ok());
-    //     assert!(cpu.cycle().is_ok());
-    //     assert_eq!(cpu.flags.i, false);
-    //     assert_eq!(cpu.t, 0);
-
-    //     cpu.pins.data = 0xB8; // CLV
-    //     assert!(cpu.cycle().is_ok());
-    //     assert!(cpu.cycle().is_ok());
-    //     assert_eq!(cpu.flags.v, false);
-    //     assert_eq!(cpu.t, 0);
-    // }
+    #[test]
+    fn test_flags() {
+        run_test(&[0xF8], |cpu| assert!(cpu.flags.d));
+        run_test(&[0xF8, 0xD8], |cpu| assert!(!cpu.flags.d));
+        run_test(&[0x78], |cpu| assert!(cpu.flags.i));
+        run_test(&[0x78, 0x58], |cpu| assert!(!cpu.flags.i));
+        run_test(&[0x38], |cpu| assert!(cpu.flags.c));
+        run_test(&[0x38, 0x18], |cpu| assert!(!cpu.flags.c));
+        run_test(&[0xA9, 255], |cpu| assert!(cpu.flags.n));
+        run_test(&[0xA9, 128, 0xB8], |cpu| assert!(!cpu.flags.n));
+    }
 }

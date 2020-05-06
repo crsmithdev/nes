@@ -28,6 +28,7 @@ impl TestVM {
         let memory = Vec::from(&*TEST_ROM);
         let mut cpu = CPU::new();
         cpu.pc = TEST_START;
+        cpu.pins.addr = cpu.pc;
 
         TestVM {
             cpu,
