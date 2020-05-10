@@ -144,7 +144,7 @@ impl InternalsWindow {
             Self::KEY_Y => label! {" Y:"; cols[0], rows[1], width, height},
             Self::KEY_A => label! {" A:"; cols[0], rows[2], width, height},
             Self::KEY_PC => label! {"PC:"; cols[0], rows[3], width, height},
-            Self::KEY_S => label! {" P:"; cols[0], rows[4], width, height},
+            Self::KEY_S => label! {" S:"; cols[0], rows[4], width, height},
             Self::KEY_T => label! {" T:"; cols[0], rows[5], width, height},
             Self::KEY_C => label! {"C:"; cols[2], rows[0], width, height},
             Self::KEY_Z => label! {"Z:"; cols[2], rows[1], width, height},

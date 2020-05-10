@@ -24,8 +24,10 @@ mod base;
 mod cpu;
 mod graphics;
 mod platform;
-mod system;
 mod ui;
+
+const TEST_ROM: &'static [u8] = include_bytes!("../data/6502_functional_test.bin");
+const TEST_START: u16 = 0x400;
 
 fn main() {
     env_logger::builder()
@@ -58,10 +60,11 @@ fn main() {
     let mut registers = ui::InternalsWindow::new(&event_loop); //registers_window);
     let _ = ui::MainMenu::new();
 
-    let mut vm = system::TestVM::new();
+    let mut vm = cpu::VM::default();
+    vm.load_program(&*TEST_ROM, TEST_START);
     let proxy = event_loop.create_proxy();
     let timer = timer::Timer::new();
-    let _guard = timer.schedule_repeating(Duration::milliseconds(300), move || {
+    let _guard = timer.schedule_repeating(Duration::milliseconds(200), move || {
         proxy.send_event(()).unwrap();
     });
 
@@ -69,7 +72,7 @@ fn main() {
     instructions.preload(&vm.cpu, &vm.memory);
     registers.update(&vm.cpu);
     ui::activate();
-    let mut paused = true;
+    let mut paused = false;
 
     event_loop.run(move |event, _, control| {
         *control = ControlFlow::Wait;
