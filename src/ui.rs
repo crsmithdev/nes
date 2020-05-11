@@ -180,12 +180,12 @@ impl InternalsWindow {
         self.update_value(Self::KEY_S, &hex2f!(cpu.s));
         self.update_value(Self::KEY_PC, &hex4f!(cpu.pc));
         self.update_value(Self::KEY_T, &format!("{}", cpu.t));
-        self.update_value(Self::KEY_C, &bitf!(cpu.flags.c));
-        self.update_value(Self::KEY_Z, &bitf!(cpu.flags.z));
-        self.update_value(Self::KEY_I, &bitf!(cpu.flags.i));
-        self.update_value(Self::KEY_D, &bitf!(cpu.flags.d));
-        self.update_value(Self::KEY_V, &bitf!(cpu.flags.v));
-        self.update_value(Self::KEY_N, &bitf!(cpu.flags.n));
+        self.update_value(Self::KEY_C, &bitf!(cpu.flags.carry));
+        self.update_value(Self::KEY_Z, &bitf!(cpu.flags.zero));
+        self.update_value(Self::KEY_I, &bitf!(cpu.flags.irq_disable));
+        self.update_value(Self::KEY_D, &bitf!(cpu.flags.decimal));
+        self.update_value(Self::KEY_V, &bitf!(cpu.flags.overflow));
+        self.update_value(Self::KEY_N, &bitf!(cpu.flags.negative));
 
         self.window.request_redraw();
     }

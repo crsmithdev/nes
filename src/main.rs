@@ -55,7 +55,7 @@ fn main() {
         .init();
 
     let event_loop = EventLoop::new();
-    let mut graphics = ui::Graphics::new(&event_loop);
+    // let mut graphics = ui::Graphics::new(&event_loop);
     let mut instructions = ui::Instructions::new(&event_loop);
     let mut registers = ui::InternalsWindow::new(&event_loop); //registers_window);
     let _ = ui::MainMenu::new();
@@ -64,15 +64,16 @@ fn main() {
     vm.load_program(&*TEST_ROM, TEST_START);
     let proxy = event_loop.create_proxy();
     let timer = timer::Timer::new();
-    let _guard = timer.schedule_repeating(Duration::milliseconds(200), move || {
+    let _guard = timer.schedule_repeating(Duration::milliseconds(20), move || {
         proxy.send_event(()).unwrap();
     });
 
-    graphics.resize(1024, 768); // TODO
+    // graphics.resize(1024, 768); // TODO
     instructions.preload(&vm.cpu, &vm.memory);
     registers.update(&vm.cpu);
     ui::activate();
     let mut paused = false;
+    let mut background = false;
 
     event_loop.run(move |event, _, control| {
         *control = ControlFlow::Wait;
@@ -81,9 +82,12 @@ fn main() {
             Event::WindowEvent { event, window_id } => match event {
                 WindowEvent::CloseRequested => *control = ControlFlow::Exit,
                 WindowEvent::Resized(dims) => {
-                    if window_id == graphics.id() {
-                        graphics.resize(dims.width, dims.height);
-                    }
+                    // if window_id == graphics.id() {
+                    // graphics.resize(dims.width, dims.height);
+                    // }
+                }
+                WindowEvent::Focused(f) => {
+                    //background = !f;
                 }
                 WindowEvent::KeyboardInput { input, .. } => match input {
                     KeyboardInput {
@@ -107,12 +111,14 @@ fn main() {
             },
             Event::RedrawEventsCleared => (), // TODO
             Event::UserEvent(_) => {
-                if !paused {
-                    vm.update();
+                if !background {
+                    if !paused {
+                        vm.update();
+                    }
+                    // graphics.update();
+                    instructions.update(&vm.cpu);
+                    registers.update(&vm.cpu);
                 }
-                graphics.update();
-                instructions.update(&vm.cpu);
-                registers.update(&vm.cpu);
             }
             _ => {}
         }
