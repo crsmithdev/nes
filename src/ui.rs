@@ -1,9 +1,9 @@
-use crate::base::{Container, Label, Menu, Rect};
+use crate::base::{Color, Container, Font, Label, Menu, Rect};
 use crate::cpu::{decode_bytes, disassemble};
-use crate::cpu::{Instruction, CPU};
+use crate::cpu::{Instruction, CPU, VM};
 use crate::graphics::Renderer;
 pub use crate::platform::activate;
-use crate::platform::{OSLabel, OSMenu, OSView};
+use crate::platform::{OSColor, OSFont, OSLabel, OSMenu, OSView};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use winit::{
@@ -17,7 +17,7 @@ use gfx_hal::{prelude::*, window::Extent2D};
 macro_rules! label {
     ($x:expr, $y:expr, $width:expr, $height:expr) => {{
         let rect = rect! {$x, $y, $width, $height};
-        let mut label = OSLabel::new();
+        let mut label = OSLabel::new(&*RESOURCES);
         label.set_rect(rect);
         label
     }};
@@ -26,6 +26,23 @@ macro_rules! label {
         label.set_text($text);
         label
     }};
+}
+
+lazy_static! {
+    static ref RESOURCES: ResourceManager = ResourceManager::new();
+    static ref DEFAULT_FONT: OSFont = OSFont::from_file("./data/SourceCodePro-Regular.ttf");
+    static ref DEFAULT_BACKGROUND_COLOR: Color = Color {
+        r: 42. / 255.,
+        g: 46. / 255.,
+        b: 63. / 255.,
+        a: 1.
+    };
+    static ref DEFAULT_TEXT_COLOR: Color = Color {
+        r: 165. / 255.,
+        g: 170. / 255.,
+        b: 205. / 255.,
+        a: 1.
+    };
 }
 
 const MAX_LINES: usize = 50;
@@ -61,6 +78,37 @@ fn build_window<T>(title: &str, event_loop: &EventLoop<T>, rect: Rect) -> Window
     window.request_redraw();
     window
 }
+
+pub struct ResourceManager {
+    fg_color_: OSColor,
+    bg_color_: OSColor,
+    font_: OSFont,
+}
+
+impl ResourceManager {
+    pub fn new() -> Self {
+        Self {
+            fg_color_: OSColor::from_color(*DEFAULT_TEXT_COLOR),
+            bg_color_: OSColor::from_color(*DEFAULT_BACKGROUND_COLOR),
+            font_: OSFont::from_file("./data/SourceCodePro-Regular.ttf"),
+        }
+    }
+
+    pub fn fg_color(&self) -> &OSColor {
+        &self.fg_color_
+    }
+
+    pub fn bg_color(&self) -> &OSColor {
+        &self.bg_color_
+    }
+
+    pub fn font(&self) -> &OSFont {
+        &self.font_
+    }
+}
+
+unsafe impl Send for ResourceManager {}
+unsafe impl Sync for ResourceManager {}
 
 pub struct Graphics {
     renderer: Renderer<back::Backend>,
@@ -99,6 +147,7 @@ pub struct InternalsWindow {
     view: OSView,
     statics: HashMap<&'static str, OSLabel>,
     values: HashMap<&'static str, OSLabel>,
+    manager: ResourceManager,
 }
 
 impl InternalsWindow {
@@ -120,23 +169,26 @@ impl InternalsWindow {
         let top = window.inner_size().height as f64 / window.scale_factor() as f64;
         let height = LINE_HEIGHT;
         let width = 60.;
+        let manager = ResourceManager::new();
 
         let cols: [f64; 4] = [0., 35., 90., 115.];
         let rows: Vec<f64> = (0..=5).map(|i| top - height - i as f64 * height).collect();
 
-        let values = hashmap! {
-            Self::KEY_X => label! {cols[1], rows[0], width, height},
-            Self::KEY_Y => label! {cols[1], rows[1], width, height},
-            Self::KEY_A => label! {cols[1], rows[2], width, height},
-            Self::KEY_PC => label! {cols[1], rows[3], width, height},
-            Self::KEY_S => label! {cols[1], rows[4], width, height},
-            Self::KEY_T => label! {cols[1], rows[5], width, height},
-            Self::KEY_C => label! {cols[3], rows[0], width, height},
-            Self::KEY_Z => label! {cols[3], rows[1], width, height},
-            Self::KEY_I => label! {cols[3], rows[2], width, height},
-            Self::KEY_D => label! {cols[3], rows[3], width, height},
-            Self::KEY_V => label! {cols[3], rows[4], width, height},
-            Self::KEY_N => label! {cols[3], rows[5], width, height},
+        let values = {
+            hashmap! {
+                Self::KEY_X => label! {cols[1], rows[0], width, height},
+                Self::KEY_Y => label! {cols[1], rows[1], width, height},
+                Self::KEY_A => label! {cols[1], rows[2], width, height},
+                Self::KEY_PC => label! {cols[1], rows[3], width, height},
+                Self::KEY_S => label! {cols[1], rows[4], width, height},
+                Self::KEY_T => label! {cols[1], rows[5], width, height},
+                Self::KEY_C => label! {cols[3], rows[0], width, height},
+                Self::KEY_Z => label! {cols[3], rows[1], width, height},
+                Self::KEY_I => label! {cols[3], rows[2], width, height},
+                Self::KEY_D => label! {cols[3], rows[3], width, height},
+                Self::KEY_V => label! {cols[3], rows[4], width, height},
+                Self::KEY_N => label! {cols[3], rows[5], width, height},
+            }
         };
 
         let statics = hashmap! {
@@ -165,6 +217,7 @@ impl InternalsWindow {
             view,
             statics,
             values,
+            manager: manager,
         }
     }
 
@@ -227,14 +280,14 @@ impl fmt::Display for InstructionSlice {
     }
 }
 
-pub struct Instructions {
-    window: Window,
+pub struct InstructionsWindow {
+    pub window: Window,
     decoded: BTreeMap<u16, Instruction>,
     displayed: InstructionSlice,
     lines: Vec<OSLabel>,
 }
 
-impl Instructions {
+impl InstructionsWindow {
     // TODO variable # of allocated labels
     // TODO incremental decoding
 
@@ -242,7 +295,11 @@ impl Instructions {
         let window = build_window(&"instructions", event_loop, RECT_INSTRUCTIONS);
         let mut view = OSView::from_window(&window);
         let lines = (0..MAX_LINES)
-            .map(|_| OSLabel::from_container(&mut view))
+            .map(|_| {
+                let label = OSLabel::new(&*RESOURCES);
+                view.add_subview(&label);
+                label
+            })
             .collect();
 
         Self {
@@ -259,6 +316,18 @@ impl Instructions {
         let height = size.height as f64 / scale;
         let width = size.width as f64 / scale;
         (width, height)
+    }
+
+    pub fn resize(&mut self) {
+        // ...
+    }
+
+    pub fn load(&mut self, vm: &VM) {
+        // ...
+    }
+
+    pub fn update2(&mut self, vm: &VM) {
+        // ...
     }
 
     pub fn preload(&mut self, _cpu: &CPU, memory: &[u8]) {
@@ -355,17 +424,21 @@ impl Instructions {
         let width = size.width as f64 / scale;
         let n_lines = (height / LINE_HEIGHT) as usize;
         let addr = cpu.pc;
-
-        for l in &mut self.lines {
-            l.highlight(false);
-            l.hide();
-            l.set_text(&"");
-        }
+        let prev_addr_start = self.displayed.addr_start;
 
         if cpu.t == 0 && addr != self.displayed.hl_addr {
             self.update_slice(n_lines, addr);
         }
         let slice = &self.displayed;
+        let jumped = self.displayed.addr_start != prev_addr_start;
+
+        // if jumped {
+        //     for l in &mut self.lines {
+        //         l.highlight(false);
+        //         // l.hide();
+        //         // l.set_text(&"");
+        //     }
+        // }
 
         for (addr, inst) in &slice.instructions {
             let i = slice.indices[&addr];

@@ -1,4 +1,7 @@
-use crate::base::{Color, Container, Font, Label, Menu, OSPtr, Rect, UIObject, View};
+use crate::{
+    base::{Color, Container, Font, Label, Menu, OSPtr, Rect, UIObject, View},
+    ui::ResourceManager,
+};
 use cocoa::{
     appkit::{NSApplication, NSApplicationActivateIgnoringOtherApps, NSColor, NSMenu, NSMenuItem},
     base::{nil, selector, NO, YES},
@@ -11,8 +14,6 @@ use core_graphics::{data_provider::CGDataProvider, font::CGFont};
 use core_text::font::CTFont;
 use std::{fs, fs::File, io::Read, sync::Arc};
 use winit::{platform::macos::WindowExtMacOS, window::Window};
-// 42 46 63 165 170 205
-// 0.132, 0.144, .148
 
 pub type Id = *mut objc::runtime::Object;
 lazy_static! {
@@ -90,6 +91,36 @@ impl Container for OSView {
     }
 }
 
+pub struct OSColor {
+    color: std::sync::Arc<std::sync::Mutex<Id>>,
+}
+
+unsafe impl Send for OSColor {}
+
+impl UIObject for OSColor {
+    fn from_ptr(_ptr: OSPtr) -> Self {
+        unimplemented!()
+    }
+
+    fn ptr(&self) -> OSPtr {
+        *self.color.lock().unwrap() as OSPtr
+    }
+}
+
+impl OSColor {
+    pub fn new(r: f64, g: f64, b: f64, a: f64) -> Self {
+        unsafe {
+            let color = NSColor::colorWithSRGBRed_green_blue_alpha_(nil, r, g, b, a);
+            let color = std::sync::Arc::new(std::sync::Mutex::new(color));
+            Self { color }
+        }
+    }
+
+    pub fn from_color(color: Color) -> Self {
+        Self::new(color.r, color.g, color.b, color.a)
+    }
+}
+
 pub struct OSFont {
     font: CTFont,
 }
@@ -120,8 +151,14 @@ impl OSFont {
 pub struct OSLabel {
     ptr: Id,
     text: String,
-    text_color: Color,
-    background_color: Color,
+    text_color: Id,
+    background_color: Id,
+    storage: Id,
+    changed: bool,
+    rect: Rect,
+    ns_rect: NSRect,
+    highlighted: bool,
+    visible: bool,
     font: &'static OSFont,
 }
 
@@ -140,103 +177,112 @@ impl UIObject for OSLabel {
 impl Label for OSLabel {
     type F = OSFont;
 
-    fn new() -> Self {
+    fn set_rect(&mut self, rect: Rect) {
+        if rect != self.rect {
+            self.changed = true;
+            let new_rect = NSRect::new(
+                NSPoint::new(rect.x, rect.y),
+                NSSize::new(rect.width, rect.height),
+            );
+            self.rect = rect;
+            self.ns_rect = new_rect;
+            unsafe {
+                msg_sendf![self.ptr, setFrame: new_rect];
+            }
+        }
+    }
+
+    fn hide(&mut self) {
+        if self.visible {
+            unsafe {
+                msg_sendf![self.ptr, setHidden: YES];
+            }
+            self.visible = false;
+        }
+    }
+
+    fn show(&mut self) {
+        if !self.visible {
+            unsafe {
+                msg_sendf![self.ptr, setHidden: NO];
+            }
+            self.visible = true;
+        }
+    }
+
+    fn hidden(&mut self, value: bool) {
+        let hidden = match value {
+            true => YES,
+            false => NO,
+        };
+        unsafe { msg_sendf![self.ptr, seHidden: hidden] }
+    }
+
+    fn highlight(&mut self, value: bool) {
+        self.changed = value != self.highlighted;
+        self.highlighted = value;
+        if self.changed {
+            self.update_string();
+        }
+    }
+
+    fn set_text(&mut self, text: &str) {
+        self.changed = text != self.text;
+        if self.changed {
+            self.text = text.to_owned();
+            self.update_string();
+        }
+    }
+}
+
+impl OSLabel {
+    pub fn new(manager: &'static ResourceManager) -> Self {
         let ptr = unsafe {
             let alloc: Id = msg_send![class!(NSTextView), alloc];
             let view: Id = msg_send![alloc, initWithFrame: NSZeroRect];
             msg_sendf![view, setBackgroundColor: NSColor::clearColor(nil)];
             view
         };
-        let mut label = OSLabel {
-            ptr: ptr,
-            text: " ".to_owned(),
-            text_color: *DEFAULT_TEXT_COLOR,
-            background_color: *DEFAULT_BACKGROUND_COLOR,
-            font: &*DEFAULT_FONT,
+        let storage: Id = unsafe { msg_send![ptr, textStorage] };
+        let mut label = unsafe {
+            OSLabel {
+                ptr: ptr,
+                text: " ".to_owned(),
+                highlighted: false,
+                changed: false,
+                rect: rect!(0., 0., 0., 0.),
+                ns_rect: NSZeroRect,
+                storage: storage,
+                visible: true,
+                text_color: manager.fg_color().ptr() as Id,
+                background_color: manager.bg_color().ptr() as Id,
+                font: &*DEFAULT_FONT,
+            }
         };
-
+        unsafe { msg_sendf![ptr, setHidden: NO] };
         label.update_string();
         label
     }
 
-    fn from_container(container: &mut impl Container) -> Self {
-        let label = OSLabel::new();
-        container.add_subview(&label);
-        label
-    }
-
-    // fn inner(&self) -> OSPtr {
-    //     self.ptr as OSPtr
-    // }
-
-    fn set_rect(&mut self, rect: Rect) {
-        let ns_rect = NSRect::new(
-            NSPoint::new(rect.x, rect.y),
-            NSSize::new(rect.width, rect.height),
-        );
-        unsafe {
-            msg_sendf![self.ptr, setFrame: ns_rect];
-        }
-    }
-
-    fn hide(&mut self) {
-        unsafe {
-            msg_sendf![self.ptr, setHidden: YES];
-        }
-    }
-
-    fn show(&mut self) {
-        unsafe {
-            msg_sendf![self.ptr, setHidden: NO];
-        }
-    }
-
-    fn highlight(&mut self, value: bool) {
-        if value {
-            self.text_color = *DEFAULT_BACKGROUND_COLOR;
-            self.background_color = *DEFAULT_TEXT_COLOR;
-        } else {
-            self.text_color = *DEFAULT_TEXT_COLOR;
-            self.background_color = *DEFAULT_BACKGROUND_COLOR;
-        }
-        self.update_string();
-    }
-
-    fn set_text(&mut self, text: &str) {
-        self.text = text.to_owned();
-        self.update_string();
-    }
-}
-
-impl OSLabel {
     fn update_string(&mut self) {
-        let range = NSRange::new(0, self.text.len() as u64);
+        let new_range = NSRange::new(0, self.text.len() as u64);
         unsafe {
-            let fg_color = NSColor::colorWithSRGBRed_green_blue_alpha_(
-                nil,
-                self.text_color.r,
-                self.text_color.g,
-                self.text_color.b,
-                self.text_color.a,
-            );
-            let bg_color = NSColor::colorWithSRGBRed_green_blue_alpha_(
-                nil,
-                self.background_color.r,
-                self.background_color.g,
-                self.background_color.b,
-                self.background_color.a,
-            );
-            let string: Id = {
-                let s1: Id = NSString::alloc(nil).init_str(&self.text);
-                let s2: Id = msg_send![class!(NSMutableAttributedString), alloc];
-                msg_send![s2, initWithString: s1]
+            let pool = NSAutoreleasePool::new(nil);
+            let (fg_color, bg_color) = match self.highlighted {
+                true => (self.background_color, self.text_color),
+                false => (self.text_color, self.background_color),
             };
-            msg_sendf![string, addAttribute:NSFontAttributeName value:self.font.inner() range:range];
-            msg_sendf![string, addAttribute:NSForegroundColorAttributeName value:fg_color range:range];
-            let storage: Id = msg_send![self.ptr, textStorage];
-            msg_sendf![storage, setAttributedString: string];
+            let storage = self.storage;
+            let new_text = NSString::alloc(nil).init_str(&self.text).autorelease();
+            let old_len: u64 = msg_send![storage, length];
+            let old_range = NSRange::new(0, old_len);
+            msg_sendf![storage, replaceCharactersInRange:old_range withString: new_text];
+            msg_sendf![storage, addAttribute:NSFontAttributeName value:self.font.inner() range:new_range];
+            msg_sendf![storage, addAttribute:NSForegroundColorAttributeName value:fg_color range:new_range];
             msg_sendf![self.ptr, setBackgroundColor: bg_color];
+            pool.drain();
         }
+        self.changed = false;
     }
 }
 

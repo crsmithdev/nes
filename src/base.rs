@@ -37,6 +37,15 @@ pub struct Rect {
     pub height: f64,
 }
 
+impl PartialEq for Rect {
+    fn eq(&self, other: &Self) -> bool {
+        (self.x - other.x).abs() <= 0.01
+            && (self.y - other.y).abs() <= 0.01
+            && (self.width - other.width).abs() <= 0.01
+            && (self.height - other.height).abs() <= 0.01
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct Color {
     pub r: f64,
@@ -63,11 +72,10 @@ pub trait Menu {
 pub trait Label: UIObject {
     type F: Font;
 
-    fn new() -> Self;
-    fn from_container(container: &mut impl Container) -> Self;
     fn set_rect(&mut self, rect: Rect);
     fn hide(&mut self);
     fn show(&mut self);
+    fn hidden(&mut self, value: bool);
     fn highlight(&mut self, value: bool);
     fn set_text(&mut self, text: &str);
 }
