@@ -73,10 +73,8 @@ pub trait Label: UIObject {
     type F: Font;
 
     fn set_rect(&mut self, rect: Rect);
-    fn hide(&mut self);
-    fn show(&mut self);
-    fn hidden(&mut self, value: bool);
-    fn highlight(&mut self, value: bool);
+    fn set_visible(&mut self, value: bool);
+    fn set_highlighted(&mut self, value: bool);
     fn set_text(&mut self, text: &str);
 }
 

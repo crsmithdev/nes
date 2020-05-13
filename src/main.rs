@@ -69,7 +69,7 @@ fn main() {
     });
 
     graphics.resize(1024, 768); // TODO
-    instructions.preload(&vm.cpu, &vm.memory);
+    instructions.load(&vm);
     registers.update(&vm.cpu);
     ui::activate();
     let mut paused = false;
@@ -111,7 +111,7 @@ fn main() {
                     vm.update();
                 }
                 // graphics.update();
-                instructions.update(&vm.cpu);
+                instructions.update2(&vm);
                 registers.update(&vm.cpu);
             }
             _ => {}

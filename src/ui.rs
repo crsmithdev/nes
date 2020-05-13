@@ -82,7 +82,7 @@ fn build_window<T>(title: &str, event_loop: &EventLoop<T>, rect: Rect) -> Window
 pub struct ResourceManager {
     fg_color_: OSColor,
     bg_color_: OSColor,
-    font_: OSFont,
+    // font_: OSFont,
 }
 
 impl ResourceManager {
@@ -90,7 +90,7 @@ impl ResourceManager {
         Self {
             fg_color_: OSColor::from_color(*DEFAULT_TEXT_COLOR),
             bg_color_: OSColor::from_color(*DEFAULT_BACKGROUND_COLOR),
-            font_: OSFont::from_file("./data/SourceCodePro-Regular.ttf"),
+            // font_: OSFont::from_file("./data/SourceCodePro-Regular.ttf"),
         }
     }
 
@@ -102,9 +102,9 @@ impl ResourceManager {
         &self.bg_color_
     }
 
-    pub fn font(&self) -> &OSFont {
-        &self.font_
-    }
+    // pub fn font(&self) -> &OSFont {
+    //     &self.font_
+    // }
 }
 
 unsafe impl Send for ResourceManager {}
@@ -127,9 +127,9 @@ impl Graphics {
         self.renderer.window.id()
     }
 
-    pub fn update(&mut self) {
-        self.renderer.render();
-    }
+    // pub fn update(&mut self) {
+    //     self.renderer.render();
+    // }
 
     pub fn resize(&mut self, width: u32, height: u32) {
         self.renderer.dimensions = Extent2D {
@@ -285,6 +285,7 @@ pub struct InstructionsWindow {
     decoded: BTreeMap<u16, Instruction>,
     displayed: InstructionSlice,
     lines: Vec<OSLabel>,
+    n_lines: usize,
 }
 
 impl InstructionsWindow {
@@ -305,6 +306,7 @@ impl InstructionsWindow {
         Self {
             window,
             lines,
+            n_lines: 50,
             displayed: InstructionSlice::default(),
             decoded: BTreeMap::new(),
         }
@@ -319,26 +321,74 @@ impl InstructionsWindow {
     }
 
     pub fn resize(&mut self) {
-        // ...
+        let (width, height) = self.get_extent();
+        let n_lines = (height / LINE_HEIGHT) as usize;
+
+        for i in 0..self.lines.len() {
+            let line = &mut self.lines[i];
+            let rect = Rect {
+                x: 0.,
+                y: height - (i as f64) * LINE_HEIGHT - LINE_HEIGHT,
+                width: width,
+                height: LINE_HEIGHT,
+            };
+            line.set_rect(rect);
+            line.set_visible(i < n_lines);
+            // if i < n_lines {
+            //     line.set_visible(true);
+            // } else {
+            //     line.set_visible();
+            // }
+        }
+
+        self.n_lines = n_lines;
     }
 
     pub fn load(&mut self, vm: &VM) {
-        // ...
+        self.decoded = Self::map_instructions(&vm.memory);
+        self.resize();
     }
 
     pub fn update2(&mut self, vm: &VM) {
-        // ...
+        let addr = vm.cpu.pc;
+        let prev_start = self.displayed.addr_start;
+        let prev_hl = self.displayed.hl_line;
+
+        if vm.cpu.t == 0 && addr != self.displayed.hl_addr {
+            self.update_slice(self.n_lines, addr);
+        }
+
+        let slice = &self.displayed;
+        let new_start = slice.addr_start;
+        let new_hl = slice.hl_line;
+        let jumped = new_start != prev_start;
+        let moved = new_hl != prev_hl;
+
+        if moved {
+            self.lines[prev_hl].set_highlighted(false);
+            self.lines[new_hl].set_highlighted(true);
+        }
+
+        if jumped {
+            for (addr, inst) in &slice.instructions {
+                let i = slice.indices[&addr];
+                let text_view = &mut self.lines[i];
+
+                let text1 = disassemble(&inst);
+                let text2 = match inst.bytes {
+                    3 => format!("{:02X} {:02X}{:02X}", inst.opcode, inst.arg1, inst.arg2),
+                    2 => format!("{:02X} {:02X}  ", inst.opcode, inst.arg1),
+                    _ => format!("{:02X}     ", inst.opcode),
+                };
+                let text3 = format!("{:04X} {} {}", addr, text2, text1);
+                text_view.set_text(&text3);
+            }
+        }
     }
 
-    pub fn preload(&mut self, _cpu: &CPU, memory: &[u8]) {
-        let n_lines = (self.get_extent().1 / LINE_HEIGHT) as usize;
-        self.decoded = Self::map_instructions(memory, 0);
-        self.update_slice(n_lines, 0);
-    }
-
-    fn map_instructions(bytes: &[u8], start: usize) -> BTreeMap<u16, Instruction> {
+    fn map_instructions(bytes: &[u8]) -> BTreeMap<u16, Instruction> {
         let mut map = BTreeMap::new();
-        let mut address = start;
+        let mut address = 0;
 
         while address < bytes.len() {
             match decode_bytes(bytes, address) {
@@ -354,7 +404,7 @@ impl InstructionsWindow {
         debug!(
             "decoded {} instructions ({:#04X}-{:#04X}) from {} bytes",
             map.len(),
-            start,
+            0,
             address,
             bytes.len()
         );
@@ -415,57 +465,6 @@ impl InstructionsWindow {
         };
 
         debug!("sliced instructions @ {:#04X}: {}", addr, self.displayed);
-    }
-
-    pub fn update(&mut self, cpu: &CPU) {
-        let scale = self.window.scale_factor();
-        let size = self.window.inner_size();
-        let height = size.height as f64 / scale;
-        let width = size.width as f64 / scale;
-        let n_lines = (height / LINE_HEIGHT) as usize;
-        let addr = cpu.pc;
-        let prev_addr_start = self.displayed.addr_start;
-
-        if cpu.t == 0 && addr != self.displayed.hl_addr {
-            self.update_slice(n_lines, addr);
-        }
-        let slice = &self.displayed;
-        let jumped = self.displayed.addr_start != prev_addr_start;
-
-        // if jumped {
-        //     for l in &mut self.lines {
-        //         l.highlight(false);
-        //         // l.hide();
-        //         // l.set_text(&"");
-        //     }
-        // }
-
-        for (addr, inst) in &slice.instructions {
-            let i = slice.indices[&addr];
-            let text_view = &mut self.lines[i];
-            let rect = Rect {
-                x: 0.,
-                y: height - (i as f64) * LINE_HEIGHT - LINE_HEIGHT,
-                width: width,
-                height: LINE_HEIGHT,
-            };
-
-            if i == slice.hl_line {
-                text_view.highlight(true);
-            }
-
-            let text1 = disassemble(&inst);
-            let text2 = match inst.bytes {
-                3 => format!("{:02X} {:02X}{:02X}", inst.opcode, inst.arg1, inst.arg2),
-                2 => format!("{:02X} {:02X}  ", inst.opcode, inst.arg1),
-                _ => format!("{:02X}     ", inst.opcode),
-            };
-            let text3 = format!("{:04X} {} {}", addr, text2, text1);
-
-            text_view.show();
-            text_view.set_rect(rect);
-            text_view.set_text(&text3);
-        }
     }
 }
 

@@ -151,14 +151,13 @@ impl OSFont {
 pub struct OSLabel {
     ptr: Id,
     text: String,
-    text_color: Id,
-    background_color: Id,
+    fg_color: Id,
+    bg_color: Id,
     storage: Id,
-    changed: bool,
-    rect: Rect,
-    ns_rect: NSRect,
-    highlighted: bool,
     visible: bool,
+    rect: Rect,
+    range: NSRange,
+    highlighted: bool,
     font: &'static OSFont,
 }
 
@@ -178,112 +177,130 @@ impl Label for OSLabel {
     type F = OSFont;
 
     fn set_rect(&mut self, rect: Rect) {
-        if rect != self.rect {
-            self.changed = true;
-            let new_rect = NSRect::new(
-                NSPoint::new(rect.x, rect.y),
-                NSSize::new(rect.width, rect.height),
+        let changed = rect != self.rect;
+        self.rect = rect;
+
+        if changed {
+            let ns_rect = NSRect::new(
+                NSPoint::new(self.rect.x, self.rect.y),
+                NSSize::new(self.rect.width, self.rect.height),
             );
-            self.rect = rect;
-            self.ns_rect = new_rect;
             unsafe {
-                msg_sendf![self.ptr, setFrame: new_rect];
+                msg_sendf![self.ptr, setFrame: ns_rect];
             }
         }
     }
 
-    fn hide(&mut self) {
-        if self.visible {
-            unsafe {
-                msg_sendf![self.ptr, setHidden: YES];
-            }
-            self.visible = false;
+    fn set_visible(&mut self, value: bool) {
+        let changed = value != self.visible;
+        self.visible = value;
+
+        if changed {
+            let hidden = match value {
+                true => NO,
+                false => YES,
+            };
+            unsafe { msg_sendf![self.ptr, setHidden: hidden] }
         }
     }
 
-    fn show(&mut self) {
-        if !self.visible {
-            unsafe {
-                msg_sendf![self.ptr, setHidden: NO];
-            }
-            self.visible = true;
-        }
-    }
-
-    fn hidden(&mut self, value: bool) {
-        let hidden = match value {
-            true => YES,
-            false => NO,
-        };
-        unsafe { msg_sendf![self.ptr, seHidden: hidden] }
-    }
-
-    fn highlight(&mut self, value: bool) {
-        self.changed = value != self.highlighted;
+    fn set_highlighted(&mut self, value: bool) {
+        let changed = value != self.highlighted;
         self.highlighted = value;
-        if self.changed {
-            self.update_string();
+
+        if changed {
+            let range = NSRange::new(0, self.text.len() as u64);
+            let (fg_color, bg_color) = match self.highlighted {
+                true => (self.bg_color, self.fg_color),
+                false => (self.fg_color, self.bg_color),
+            };
+
+            unsafe {
+                let pool = NSAutoreleasePool::new(nil);
+                msg_sendf![self.storage, addAttribute:NSForegroundColorAttributeName
+                value:fg_color range:range];
+                msg_sendf![self.ptr, setBackgroundColor: bg_color];
+                pool.drain();
+            }
         }
     }
 
     fn set_text(&mut self, text: &str) {
-        self.changed = text != self.text;
-        if self.changed {
-            self.text = text.to_owned();
-            self.update_string();
+        let changed = text != self.text;
+        self.text = text.to_owned();
+
+        if changed {
+            let new_range = NSRange::new(0, self.text.len() as u64);
+            let old_range = self.range;
+            self.range = new_range;
+
+            unsafe {
+                let pool = NSAutoreleasePool::new(nil);
+                let new_text = NSString::alloc(nil).init_str(&self.text).autorelease();
+                let (fg_color, bg_color) = match self.highlighted {
+                    true => (self.bg_color, self.fg_color),
+                    false => (self.fg_color, self.bg_color),
+                };
+
+                msg_sendf![self.storage, replaceCharactersInRange:old_range
+                    withString: new_text];
+                msg_sendf![self.storage, addAttribute:NSFontAttributeName
+                    value:self.font.inner() range:new_range];
+                msg_sendf![self.storage, addAttribute:NSForegroundColorAttributeName
+                    value:fg_color range:new_range];
+                msg_sendf![self.ptr, setBackgroundColor: bg_color];
+
+                pool.drain();
+            }
         }
     }
 }
 
 impl OSLabel {
     pub fn new(manager: &'static ResourceManager) -> Self {
-        let ptr = unsafe {
-            let alloc: Id = msg_send![class!(NSTextView), alloc];
-            let view: Id = msg_send![alloc, initWithFrame: NSZeroRect];
-            msg_sendf![view, setBackgroundColor: NSColor::clearColor(nil)];
-            view
+        let ptr: Id = unsafe {
+            let ptr: Id = msg_send![class!(NSTextView), alloc];
+            let ptr: Id = msg_send![ptr, initWithFrame: NSZeroRect];
+            ptr
         };
         let storage: Id = unsafe { msg_send![ptr, textStorage] };
-        let mut label = unsafe {
-            OSLabel {
-                ptr: ptr,
-                text: " ".to_owned(),
-                highlighted: false,
-                changed: false,
-                rect: rect!(0., 0., 0., 0.),
-                ns_rect: NSZeroRect,
-                storage: storage,
-                visible: true,
-                text_color: manager.fg_color().ptr() as Id,
-                background_color: manager.bg_color().ptr() as Id,
-                font: &*DEFAULT_FONT,
-            }
+        let mut label = OSLabel {
+            ptr: ptr,
+            text: "".to_owned(),
+            highlighted: false,
+            rect: rect!(0., 0., 0., 0.),
+            storage: storage,
+            range: NSRange::new(0, 0),
+            visible: true,
+            fg_color: manager.fg_color().ptr() as Id,
+            bg_color: manager.bg_color().ptr() as Id,
+            font: &*DEFAULT_FONT,
         };
-        unsafe { msg_sendf![ptr, setHidden: NO] };
-        label.update_string();
+        // unsafe { msg_sendf![ptr, setHidden: NO] };
+        label.set_text(" ");
         label
     }
 
-    fn update_string(&mut self) {
-        let new_range = NSRange::new(0, self.text.len() as u64);
-        unsafe {
-            let pool = NSAutoreleasePool::new(nil);
-            let (fg_color, bg_color) = match self.highlighted {
-                true => (self.background_color, self.text_color),
-                false => (self.text_color, self.background_color),
-            };
-            let storage = self.storage;
-            let new_text = NSString::alloc(nil).init_str(&self.text).autorelease();
-            let old_len: u64 = msg_send![storage, length];
-            let old_range = NSRange::new(0, old_len);
-            msg_sendf![storage, replaceCharactersInRange:old_range withString: new_text];
-            msg_sendf![storage, addAttribute:NSFontAttributeName value:self.font.inner() range:new_range];
-            msg_sendf![storage, addAttribute:NSForegroundColorAttributeName value:fg_color range:new_range];
-            msg_sendf![self.ptr, setBackgroundColor: bg_color];
-            pool.drain();
-        }
-        self.changed = false;
-    }
+    // fn update_string(&mut self) {
+    //     let new_range = NSRange::new(0, self.text.len() as u64);
+    //     unsafe {
+    //         let pool = NSAutoreleasePool::new(nil);
+    //         let (fg_color, bg_color) = match self.highlighted {
+    //             true => (self.bg_color, self.fg_color),
+    //             false => (self.fg_color, self.bg_color),
+    //         };
+    //         let storage = self.storage;
+    //         let new_text = NSString::alloc(nil).init_str(&self.text).autorelease();
+    //         let old_len: u64 = msg_send![storage, length];
+    //         let old_range = NSRange::new(0, old_len);
+    //         msg_sendf![storage, replaceCharactersInRange:old_range withString: new_text];
+    //         msg_sendf![storage, addAttribute:NSFontAttributeName value:self.font.inner() range:new_range];
+    //         msg_sendf![storage, addAttribute:NSForegroundColorAttributeName value:fg_color range:new_range];
+    //         msg_sendf![self.ptr, setBackgroundColor: bg_color];
+    //         pool.drain();
+    //     }
+    //     self.changed = false;
+    // }
 }
 
 pub struct OSMenu {}
