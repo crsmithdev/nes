@@ -50,24 +50,10 @@ const INSTRUCTION_PAD: usize = 4;
 const CRATE_NAME: &'static str = env!("CARGO_PKG_NAME");
 const CRATE_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 const LINE_HEIGHT: f64 = 20.;
-const RECT_GRAPHICS: Rect = Rect {
-    x: 200.,
-    y: 100.,
-    width: 640.,
-    height: 480.,
-};
-const RECT_INSTRUCTIONS: Rect = Rect {
-    x: RECT_GRAPHICS.x + RECT_GRAPHICS.width + 20.,
-    y: RECT_GRAPHICS.y,
-    width: 200.,
-    height: RECT_GRAPHICS.height,
-};
-const RECT_REGISTERS: Rect = Rect {
-    x: RECT_INSTRUCTIONS.x,
-    y: RECT_INSTRUCTIONS.y + RECT_INSTRUCTIONS.height + 40.,
-    width: 200.,
-    height: 200.,
-};
+const RECT_GRAPHICS: Rect = rect!(200., 100., 640., 480.);
+const RECT_INSTRUCTIONS: Rect = rect!(860., 100., 200., 480.);
+const RECT_INTERNALS: Rect = rect!(200., 620., 200., 200.);
+// };
 
 fn build_window<T>(title: &str, event_loop: &EventLoop<T>, rect: Rect) -> Window {
     let builder = WindowBuilder::new()
@@ -82,7 +68,7 @@ fn build_window<T>(title: &str, event_loop: &EventLoop<T>, rect: Rect) -> Window
 pub struct ResourceManager {
     fg_color_: OSColor,
     bg_color_: OSColor,
-    // font_: OSFont,
+    font_: OSFont,
 }
 
 impl ResourceManager {
@@ -90,7 +76,7 @@ impl ResourceManager {
         Self {
             fg_color_: OSColor::from_color(*DEFAULT_TEXT_COLOR),
             bg_color_: OSColor::from_color(*DEFAULT_BACKGROUND_COLOR),
-            // font_: OSFont::from_file("./data/SourceCodePro-Regular.ttf"),
+            font_: OSFont::from_file("./data/SourceCodePro-Regular.ttf"),
         }
     }
 
@@ -102,9 +88,9 @@ impl ResourceManager {
         &self.bg_color_
     }
 
-    // pub fn font(&self) -> &OSFont {
-    //     &self.font_
-    // }
+    pub fn font(&self) -> &OSFont {
+        &self.font_
+    }
 }
 
 unsafe impl Send for ResourceManager {}
@@ -165,7 +151,7 @@ impl InternalsWindow {
     const KEY_N: &'static str = &"N";
 
     pub fn new<T>(event_loop: &EventLoop<T>) -> Self {
-        let window = build_window(&"internals", event_loop, RECT_REGISTERS);
+        let window = build_window(&"internals", event_loop, RECT_INTERNALS);
         let top = window.inner_size().height as f64 / window.scale_factor() as f64;
         let height = LINE_HEIGHT;
         let width = 60.;

@@ -14,6 +14,7 @@ use chrono::Duration;
 use env_logger::fmt::Color;
 use log::Level;
 use std::io::Write;
+use std::time::SystemTime;
 use winit::{
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -64,7 +65,7 @@ fn main() {
     vm.load_program(&*TEST_ROM, TEST_START);
     let proxy = event_loop.create_proxy();
     let timer = timer::Timer::new();
-    let _guard = timer.schedule_repeating(Duration::milliseconds(20), move || {
+    let _guard = timer.schedule_repeating(Duration::milliseconds(2), move || {
         proxy.send_event(()).unwrap();
     });
 
@@ -73,6 +74,7 @@ fn main() {
     registers.update(&vm.cpu);
     ui::activate();
     let mut paused = false;
+    let mut ui_updated = SystemTime::now();
 
     event_loop.run(move |event, _, control| {
         *control = ControlFlow::Wait;
@@ -111,8 +113,14 @@ fn main() {
                     vm.update();
                 }
                 // graphics.update();
-                instructions.update2(&vm);
-                registers.update(&vm.cpu);
+                let now = SystemTime::now();
+                let elapsed = now.duration_since(ui_updated).unwrap();
+                let ms = elapsed.as_millis();
+                if ms > 33 {
+                    instructions.update2(&vm);
+                    registers.update(&vm.cpu);
+                    ui_updated = now;
+                }
             }
             _ => {}
         }

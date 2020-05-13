@@ -1,5 +1,5 @@
 use crate::{
-    base::{Color, Container, Font, Label, Menu, OSPtr, Rect, UIObject, View},
+    base::{Color, Container, Font, Label, Menu, OSObject, OSPtr, Rect, View},
     ui::ResourceManager,
 };
 use cocoa::{
@@ -15,7 +15,6 @@ use core_text::font::CTFont;
 use std::{fs, fs::File, io::Read, sync::Arc};
 use winit::{platform::macos::WindowExtMacOS, window::Window};
 
-pub type Id = *mut objc::runtime::Object;
 lazy_static! {
     static ref DEFAULT_FONT: OSFont = OSFont::from_file("./data/SourceCodePro-Regular.ttf");
     static ref DEFAULT_BACKGROUND_COLOR: Color = Color {
@@ -47,11 +46,25 @@ macro_rules! msg_sendf {
     });
 }
 
+pub type Id = *mut objc::runtime::Object;
+
 pub struct OSView {
     ptr: Id,
 }
 
 impl View for OSView {}
+
+impl OSObject for OSView {
+    fn ptr(&self) -> OSPtr {
+        self.ptr as OSPtr
+    }
+}
+
+impl Container for OSView {
+    fn add_subview(&mut self, view: &impl View) {
+        unsafe { msg_sendf!(self.ptr, addSubview: view.ptr()) }
+    }
+}
 
 impl OSView {
     pub fn from_window(window: &Window) -> OSView {
@@ -67,45 +80,11 @@ impl OSView {
     }
 }
 
-impl UIObject for OSView {
-    fn from_ptr(ptr: OSPtr) -> Self {
-        unsafe {
-            let id = ptr as Id;
-            let color = *DEFAULT_BACKGROUND_COLOR;
-            let bg_color = NSColor::colorWithSRGBRed_green_blue_alpha_(
-                nil, color.r, color.g, color.b, color.a,
-            );
-            msg_sendf![id, setBackgroundColor: bg_color];
-            Self { ptr: id }
-        }
-    }
-
-    fn ptr(&self) -> OSPtr {
-        self.ptr as OSPtr
-    }
-}
-
-impl Container for OSView {
-    fn add_subview(&mut self, view: &impl View) {
-        unsafe { msg_sendf!(self.ptr, addSubview: view.ptr()) }
-    }
-}
-
 pub struct OSColor {
     color: std::sync::Arc<std::sync::Mutex<Id>>,
 }
 
 unsafe impl Send for OSColor {}
-
-impl UIObject for OSColor {
-    fn from_ptr(_ptr: OSPtr) -> Self {
-        unimplemented!()
-    }
-
-    fn ptr(&self) -> OSPtr {
-        *self.color.lock().unwrap() as OSPtr
-    }
-}
 
 impl OSColor {
     pub fn new(r: f64, g: f64, b: f64, a: f64) -> Self {
@@ -118,6 +97,12 @@ impl OSColor {
 
     pub fn from_color(color: Color) -> Self {
         Self::new(color.r, color.g, color.b, color.a)
+    }
+}
+
+impl OSObject for OSColor {
+    fn ptr(&self) -> OSPtr {
+        *self.color.lock().unwrap() as OSPtr
     }
 }
 
@@ -142,36 +127,26 @@ impl Font for OSFont {
     }
 }
 
-impl OSFont {
-    pub fn inner(&self) -> *const std::ffi::c_void {
-        self.font.to_void()
+impl OSObject for OSFont {
+    fn ptr(&self) -> OSPtr {
+        self.font.to_void() as *mut std::ffi::c_void
     }
 }
 
 pub struct OSLabel {
     ptr: Id,
-    text: String,
+    storage: Id,
     fg_color: Id,
     bg_color: Id,
-    storage: Id,
-    visible: bool,
+    text: String,
     rect: Rect,
     range: NSRange,
-    highlighted: bool,
     font: &'static OSFont,
+    visible: bool,
+    highlighted: bool,
 }
 
 impl View for OSLabel {}
-
-impl UIObject for OSLabel {
-    fn from_ptr(_ptr: OSPtr) -> Self {
-        unimplemented!()
-    }
-
-    fn ptr(&self) -> OSPtr {
-        self.ptr as OSPtr
-    }
-}
 
 impl Label for OSLabel {
     type F = OSFont;
@@ -245,7 +220,7 @@ impl Label for OSLabel {
                 msg_sendf![self.storage, replaceCharactersInRange:old_range
                     withString: new_text];
                 msg_sendf![self.storage, addAttribute:NSFontAttributeName
-                    value:self.font.inner() range:new_range];
+                    value:self.font.ptr() range:new_range];
                 msg_sendf![self.storage, addAttribute:NSForegroundColorAttributeName
                     value:fg_color range:new_range];
                 msg_sendf![self.ptr, setBackgroundColor: bg_color];
@@ -256,6 +231,12 @@ impl Label for OSLabel {
     }
 }
 
+impl OSObject for OSLabel {
+    fn ptr(&self) -> OSPtr {
+        self.ptr as OSPtr
+    }
+}
+
 impl OSLabel {
     pub fn new(manager: &'static ResourceManager) -> Self {
         let ptr: Id = unsafe {
@@ -263,44 +244,22 @@ impl OSLabel {
             let ptr: Id = msg_send![ptr, initWithFrame: NSZeroRect];
             ptr
         };
-        let storage: Id = unsafe { msg_send![ptr, textStorage] };
         let mut label = OSLabel {
             ptr: ptr,
-            text: "".to_owned(),
-            highlighted: false,
-            rect: rect!(0., 0., 0., 0.),
-            storage: storage,
-            range: NSRange::new(0, 0),
-            visible: true,
+            storage: unsafe { msg_send![ptr, textStorage] },
             fg_color: manager.fg_color().ptr() as Id,
             bg_color: manager.bg_color().ptr() as Id,
-            font: &*DEFAULT_FONT,
+            text: "".to_owned(),
+            rect: rect!(0., 0., 0., 0.),
+            range: NSRange::new(0, 0),
+            font: manager.font(),
+            highlighted: false,
+            visible: true,
         };
-        // unsafe { msg_sendf![ptr, setHidden: NO] };
+
         label.set_text(" ");
         label
     }
-
-    // fn update_string(&mut self) {
-    //     let new_range = NSRange::new(0, self.text.len() as u64);
-    //     unsafe {
-    //         let pool = NSAutoreleasePool::new(nil);
-    //         let (fg_color, bg_color) = match self.highlighted {
-    //             true => (self.bg_color, self.fg_color),
-    //             false => (self.fg_color, self.bg_color),
-    //         };
-    //         let storage = self.storage;
-    //         let new_text = NSString::alloc(nil).init_str(&self.text).autorelease();
-    //         let old_len: u64 = msg_send![storage, length];
-    //         let old_range = NSRange::new(0, old_len);
-    //         msg_sendf![storage, replaceCharactersInRange:old_range withString: new_text];
-    //         msg_sendf![storage, addAttribute:NSFontAttributeName value:self.font.inner() range:new_range];
-    //         msg_sendf![storage, addAttribute:NSForegroundColorAttributeName value:fg_color range:new_range];
-    //         msg_sendf![self.ptr, setBackgroundColor: bg_color];
-    //         pool.drain();
-    //     }
-    //     self.changed = false;
-    // }
 }
 
 pub struct OSMenu {}

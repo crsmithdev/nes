@@ -46,6 +46,10 @@ impl PartialEq for Rect {
     }
 }
 
+pub trait OSObject {
+    fn ptr(&self) -> OSPtr;
+}
+
 #[derive(Clone, Copy)]
 pub struct Color {
     pub r: f64,
@@ -54,12 +58,7 @@ pub struct Color {
     pub a: f64,
 }
 
-pub trait UIObject {
-    fn from_ptr(ptr: OSPtr) -> Self;
-    fn ptr(&self) -> OSPtr;
-}
-
-pub trait View: UIObject {}
+pub trait View: OSObject {}
 
 pub trait Container: View {
     fn add_subview(&mut self, view: &impl View);
@@ -69,7 +68,7 @@ pub trait Menu {
     fn new() -> Self;
 }
 
-pub trait Label: UIObject {
+pub trait Label: OSObject {
     type F: Font;
 
     fn set_rect(&mut self, rect: Rect);
@@ -78,6 +77,6 @@ pub trait Label: UIObject {
     fn set_text(&mut self, text: &str);
 }
 
-pub trait Font {
+pub trait Font: OSObject {
     fn from_file(file: &str) -> Self;
 }
