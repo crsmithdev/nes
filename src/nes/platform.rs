@@ -1,7 +1,5 @@
-use crate::{
-    base::{Color, Container, Font, Label, Menu, OSObject, OSPtr, Rect, View},
-    ui::ResourceManager,
-};
+use super::base::{Color, Container, Font, Label, Menu, OSObject, OSPtr, Rect, View};
+use super::ui::ResourceManager;
 use cocoa::{
     appkit::{NSApplication, NSApplicationActivateIgnoringOtherApps, NSColor, NSMenu, NSMenuItem},
     base::{nil, selector, NO, YES},
@@ -17,18 +15,8 @@ use winit::{platform::macos::WindowExtMacOS, window::Window};
 
 lazy_static! {
     static ref DEFAULT_FONT: OSFont = OSFont::from_file("./data/SourceCodePro-Regular.ttf");
-    static ref DEFAULT_BACKGROUND_COLOR: Color = Color {
-        r: 42. / 255.,
-        g: 46. / 255.,
-        b: 63. / 255.,
-        a: 1.
-    };
-    static ref DEFAULT_TEXT_COLOR: Color = Color {
-        r: 165. / 255.,
-        g: 170. / 255.,
-        b: 205. / 255.,
-        a: 1.
-    };
+    static ref BG_COLOR: Color = color_256!(42, 46, 63, 255);
+    static ref FG_COLOR: Color = color_256!(165, 170, 205, 255);
 }
 
 extern "C" {
@@ -70,7 +58,7 @@ impl OSView {
     pub fn from_window(window: &Window) -> OSView {
         unsafe {
             let ptr = window.ns_view() as Id;
-            let color = *DEFAULT_BACKGROUND_COLOR;
+            let color = *BG_COLOR;
             let bg_color = NSColor::colorWithSRGBRed_green_blue_alpha_(
                 nil, color.r, color.g, color.b, color.a,
             );
@@ -200,6 +188,10 @@ impl Label for OSLabel {
         }
     }
 
+    fn get_text(&self) -> &str {
+        &self.text
+    }
+
     fn set_text(&mut self, text: &str) {
         let changed = text != self.text;
         self.text = text.to_owned();
@@ -212,7 +204,7 @@ impl Label for OSLabel {
             unsafe {
                 let pool = NSAutoreleasePool::new(nil);
                 let new_text = NSString::alloc(nil).init_str(&self.text).autorelease();
-                let (fg_color, bg_color) = match self.highlighted {
+                let (fg_color, _) = match self.highlighted {
                     true => (self.bg_color, self.fg_color),
                     false => (self.fg_color, self.bg_color),
                 };
@@ -223,7 +215,6 @@ impl Label for OSLabel {
                     value:self.font.ptr() range:new_range];
                 msg_sendf![self.storage, addAttribute:NSForegroundColorAttributeName
                     value:fg_color range:new_range];
-                msg_sendf![self.ptr, setBackgroundColor: bg_color];
 
                 pool.drain();
             }
@@ -257,7 +248,11 @@ impl OSLabel {
             visible: true,
         };
 
-        label.set_text(" ");
+        unsafe {
+            msg_sendf![label.ptr, setBackgroundColor: label.bg_color];
+        }
+
+        label.set_text(" "); // TODO hack
         label
     }
 }

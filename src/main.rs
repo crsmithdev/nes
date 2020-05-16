@@ -1,31 +1,13 @@
-extern crate gfx_backend_metal as back;
-#[macro_use]
-extern crate objc;
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate error_chain;
-#[macro_use]
-extern crate maplit;
-
 use chrono::Duration;
 use env_logger::fmt::Color;
 use log::Level;
+use nes::nes::{cpu, ui};
 use std::io::Write;
 use std::time::SystemTime;
 use winit::{
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
 };
-
-#[macro_use]
-mod base;
-mod cpu;
-mod graphics;
-mod platform;
-mod ui;
 
 const TEST_ROM: &'static [u8] = include_bytes!("../data/6502_functional_test.bin");
 const TEST_START: u16 = 0x400;
@@ -56,9 +38,9 @@ fn main() {
         .init();
 
     let event_loop = EventLoop::new();
-    let mut graphics = ui::Graphics::new(&event_loop);
+    let mut graphics = ui::GraphicsWindow::new(&event_loop);
     let mut instructions = ui::InstructionsWindow::new(&event_loop);
-    let mut registers = ui::InternalsWindow::new(&event_loop);
+    let mut internals = ui::InternalsWindow::new(&event_loop);
     let _ = ui::MainMenu::new();
 
     let mut vm = cpu::VM::default();
@@ -71,7 +53,7 @@ fn main() {
 
     graphics.resize(1024, 768); // TODO
     instructions.load(&vm);
-    registers.update(&vm.cpu);
+    internals.update(&vm.cpu);
     ui::activate();
     let mut paused = false;
     let mut ui_updated = SystemTime::now();
@@ -118,7 +100,7 @@ fn main() {
                 let ms = elapsed.as_millis();
                 if ms > 33 {
                     instructions.update2(&vm);
-                    registers.update(&vm.cpu);
+                    internals.update(&vm.cpu);
                     ui_updated = now;
                 }
             }

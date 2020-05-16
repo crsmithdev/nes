@@ -22,3 +22,15 @@ timer = "0.2.0"
 chrono = "0.4"
 error-chain = "0.12.2"
 maplit = "1.0.2"
+
+[lib]
+name = "nes"
+path = "src/lib.rs"
+
+[[bin]]
+name = "nes"
+path = "src/main.rs"
+
+[[bin]]
+name = "cpu-test"
+path = "src/bin/cpu_test.rs"

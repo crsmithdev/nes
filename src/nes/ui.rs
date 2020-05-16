@@ -1,11 +1,14 @@
-use crate::base::{Color, Container, Font, Label, Menu, Rect};
-use crate::cpu::{decode_bytes, disassemble};
-use crate::cpu::{Instruction, CPU, VM};
-use crate::graphics::Renderer;
-pub use crate::platform::activate;
-use crate::platform::{OSColor, OSFont, OSLabel, OSMenu, OSView};
-use std::collections::{BTreeMap, HashMap};
-use std::fmt;
+pub use crate::nes::platform::activate;
+use crate::nes::{
+    base::{Color, Container, Font, Label, Menu, Rect},
+    cpu::{decode_bytes, disassemble, Instruction, CPU, VM},
+    graphics::Renderer,
+    platform::{OSColor, OSFont, OSLabel, OSMenu, OSView},
+};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt,
+};
 use winit::{
     dpi::{LogicalPosition, LogicalSize},
     event_loop::EventLoop,
@@ -13,6 +16,22 @@ use winit::{
 };
 
 use gfx_hal::{prelude::*, window::Extent2D};
+
+const MAX_LINES: usize = 50;
+const INSTRUCTION_PAD: usize = 4;
+const CRATE_NAME: &'static str = env!("CARGO_PKG_NAME");
+const CRATE_VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const FONT_PATH: &'static str = "./data/SourceCodePro-Regular.ttf";
+const LINE_HEIGHT: f64 = 20.;
+const RECT_GRAPHICS: Rect = rect!(200., 100., 640., 480.);
+const RECT_INSTRUCTIONS: Rect = rect!(860., 100., 200., 480.);
+const RECT_INTERNALS: Rect = rect!(860., 620., 200., 200.);
+
+lazy_static! {
+    static ref BG_COLOR: Color = color_256!(42, 46, 63, 255);
+    static ref FG_COLOR: Color = color_256!(165, 170, 205, 255);
+    static ref RESOURCES: ResourceManager = ResourceManager::new();
+}
 
 macro_rules! label {
     ($x:expr, $y:expr, $width:expr, $height:expr) => {{
@@ -27,33 +46,6 @@ macro_rules! label {
         label
     }};
 }
-
-lazy_static! {
-    static ref RESOURCES: ResourceManager = ResourceManager::new();
-    static ref DEFAULT_FONT: OSFont = OSFont::from_file("./data/SourceCodePro-Regular.ttf");
-    static ref DEFAULT_BACKGROUND_COLOR: Color = Color {
-        r: 42. / 255.,
-        g: 46. / 255.,
-        b: 63. / 255.,
-        a: 1.
-    };
-    static ref DEFAULT_TEXT_COLOR: Color = Color {
-        r: 165. / 255.,
-        g: 170. / 255.,
-        b: 205. / 255.,
-        a: 1.
-    };
-}
-
-const MAX_LINES: usize = 50;
-const INSTRUCTION_PAD: usize = 4;
-const CRATE_NAME: &'static str = env!("CARGO_PKG_NAME");
-const CRATE_VERSION: &'static str = env!("CARGO_PKG_VERSION");
-const LINE_HEIGHT: f64 = 20.;
-const RECT_GRAPHICS: Rect = rect!(200., 100., 640., 480.);
-const RECT_INSTRUCTIONS: Rect = rect!(860., 100., 200., 480.);
-const RECT_INTERNALS: Rect = rect!(200., 620., 200., 200.);
-// };
 
 fn build_window<T>(title: &str, event_loop: &EventLoop<T>, rect: Rect) -> Window {
     let builder = WindowBuilder::new()
@@ -74,9 +66,9 @@ pub struct ResourceManager {
 impl ResourceManager {
     pub fn new() -> Self {
         Self {
-            fg_color_: OSColor::from_color(*DEFAULT_TEXT_COLOR),
-            bg_color_: OSColor::from_color(*DEFAULT_BACKGROUND_COLOR),
-            font_: OSFont::from_file("./data/SourceCodePro-Regular.ttf"),
+            fg_color_: OSColor::from_color(*FG_COLOR),
+            bg_color_: OSColor::from_color(*BG_COLOR),
+            font_: OSFont::from_file(&*FONT_PATH),
         }
     }
 
@@ -96,11 +88,11 @@ impl ResourceManager {
 unsafe impl Send for ResourceManager {}
 unsafe impl Sync for ResourceManager {}
 
-pub struct Graphics {
+pub struct GraphicsWindow {
     renderer: Renderer<back::Backend>,
 }
 
-impl Graphics {
+impl GraphicsWindow {
     pub fn new<T>(event_loop: &EventLoop<T>) -> Self {
         let instance = back::Instance::create(&"nes", 1).unwrap();
         let name = format!("{} v{}", CRATE_NAME, CRATE_VERSION);
@@ -112,10 +104,6 @@ impl Graphics {
     pub fn id(&self) -> WindowId {
         self.renderer.window.id()
     }
-
-    // pub fn update(&mut self) {
-    //     self.renderer.render();
-    // }
 
     pub fn resize(&mut self, width: u32, height: u32) {
         self.renderer.dimensions = Extent2D {
@@ -133,7 +121,6 @@ pub struct InternalsWindow {
     view: OSView,
     statics: HashMap<&'static str, OSLabel>,
     values: HashMap<&'static str, OSLabel>,
-    manager: ResourceManager,
 }
 
 impl InternalsWindow {
@@ -155,7 +142,6 @@ impl InternalsWindow {
         let top = window.inner_size().height as f64 / window.scale_factor() as f64;
         let height = LINE_HEIGHT;
         let width = 60.;
-        let manager = ResourceManager::new();
 
         let cols: [f64; 4] = [0., 35., 90., 115.];
         let rows: Vec<f64> = (0..=5).map(|i| top - height - i as f64 * height).collect();
@@ -203,7 +189,6 @@ impl InternalsWindow {
             view,
             statics,
             values,
-            manager: manager,
         }
     }
 
@@ -450,7 +435,7 @@ impl InstructionsWindow {
             indices: indices,
         };
 
-        debug!("sliced instructions @ {:#04X}: {}", addr, self.displayed);
+        trace!("sliced instructions @ {:#04X}: {}", addr, self.displayed);
     }
 }
 

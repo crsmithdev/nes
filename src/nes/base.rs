@@ -12,6 +12,18 @@ macro_rules! rect {
     }};
 }
 
+#[macro_export]
+macro_rules! color_256 {
+    ($r:expr, $g:expr, $b:expr, $a:expr) => {{
+        Color {
+            r: $r as f64 / 255.,
+            g: $g as f64 / 255.,
+            b: $b as f64 / 255.,
+            a: $a as f64 / 255.,
+        }
+    }};
+}
+
 macro_rules! hex2f {
     ($v:expr) => {
         &format!("{:02X}", $v)
@@ -75,6 +87,7 @@ pub trait Label: OSObject {
     fn set_visible(&mut self, value: bool);
     fn set_highlighted(&mut self, value: bool);
     fn set_text(&mut self, text: &str);
+    fn get_text(&self) -> &str;
 }
 
 pub trait Font: OSObject {
