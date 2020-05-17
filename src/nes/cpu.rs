@@ -45,7 +45,7 @@ lazy_static! {
         0x7D => instruction!(0x7D, &"ADC", 3, 4, AddressMode::AbsoluteX),
         0x79 => instruction!(0x79, &"ADC", 3, 4, AddressMode::AbsoluteY),
         0x61 => instruction!(0x61, &"ADC", 2, 6, AddressMode::IndirectX),
-        0x71 => instruction!(0x71, &"ADC", 2, 5, AddressMode::IndirectY),
+        0x71 => instruction!(0x71, &"ADC", 2, 6, AddressMode::IndirectY),
         0x29 => instruction!(0x29, &"AND", 2, 2, AddressMode::Immediate),
         0x25 => instruction!(0x25, &"AND", 2, 3, AddressMode::ZeroPage),
         0x35 => instruction!(0x35, &"AND", 2, 4, AddressMode::ZeroPageX),
@@ -53,7 +53,7 @@ lazy_static! {
         0x3D => instruction!(0x3D, &"AND", 3, 4, AddressMode::AbsoluteX),
         0x39 => instruction!(0x39, &"AND", 3, 4, AddressMode::AbsoluteY),
         0x21 => instruction!(0x21, &"AND", 2, 6, AddressMode::IndirectX),
-        0x31 => instruction!(0x31, &"AND", 2, 5, AddressMode::IndirectY),
+        0x31 => instruction!(0x31, &"AND", 2, 6, AddressMode::IndirectY),
         0x0A => instruction!(0x0A, &"ASL", 1, 2, AddressMode::Accumulator),
         0x06 => instruction!(0x06, &"ASL", 2, 5, AddressMode::ZeroPage),
         0x16 => instruction!(0x16, &"ASL", 2, 6, AddressMode::ZeroPageX),
@@ -77,7 +77,7 @@ lazy_static! {
         0xDD => instruction!(0xDD, &"CMP", 3, 4, AddressMode::AbsoluteX),
         0xD9 => instruction!(0xD9, &"CMP", 3, 4, AddressMode::AbsoluteY),
         0xC1 => instruction!(0xC1, &"CMP", 2, 6, AddressMode::IndirectX),
-        0xD1 => instruction!(0xD1, &"CMP", 2, 5, AddressMode::IndirectY),
+        0xD1 => instruction!(0xD1, &"CMP", 2, 6, AddressMode::IndirectY),
         0xE0 => instruction!(0xE0, &"CPX", 2, 2, AddressMode::Immediate),
         0xE4 => instruction!(0xE4, &"CPX", 2, 3, AddressMode::ZeroPage),
         0xEC => instruction!(0xEC, &"CPX", 3, 4, AddressMode::Absolute),
@@ -95,7 +95,7 @@ lazy_static! {
         0x5D => instruction!(0x5D, &"EOR", 3, 4, AddressMode::AbsoluteX),
         0x59 => instruction!(0x59, &"EOR", 3, 4, AddressMode::AbsoluteY),
         0x41 => instruction!(0x41, &"EOR", 2, 6, AddressMode::IndirectX),
-        0x51 => instruction!(0x51, &"EOR", 2, 5, AddressMode::IndirectY),
+        0x51 => instruction!(0x51, &"EOR", 2, 6, AddressMode::IndirectY),
         0x18 => instruction!(0x18, &"CLC", 1, 2, AddressMode::Implicit),
         0x38 => instruction!(0x38, &"SEC", 1, 2, AddressMode::Implicit),
         0x58 => instruction!(0x58, &"CLI", 1, 2, AddressMode::Implicit),
@@ -117,7 +117,7 @@ lazy_static! {
         0xBD => instruction!(0xBD, &"LDA", 3, 5, AddressMode::AbsoluteX),
         0xB9 => instruction!(0xB9, &"LDA", 3, 5, AddressMode::AbsoluteY),
         0xA1 => instruction!(0xA1, &"LDA", 2, 6, AddressMode::IndirectX),
-        0xB1 => instruction!(0xB1, &"LDA", 2, 5, AddressMode::IndirectY),
+        0xB1 => instruction!(0xB1, &"LDA", 2, 6, AddressMode::IndirectY),
         0xA2 => instruction!(0xA2, &"LDX", 2, 2, AddressMode::Immediate),
         0xA6 => instruction!(0xA6, &"LDX", 2, 3, AddressMode::ZeroPage),
         0xB6 => instruction!(0xB6, &"LDX", 2, 4, AddressMode::ZeroPageY),
@@ -141,7 +141,7 @@ lazy_static! {
         0x1D => instruction!(0x1D, &"ORA", 3, 4, AddressMode::AbsoluteX),
         0x19 => instruction!(0x19, &"ORA", 3, 4, AddressMode::AbsoluteY),
         0x01 => instruction!(0x01, &"ORA", 2, 6, AddressMode::IndirectX),
-        0x11 => instruction!(0x11, &"ORA", 2, 5, AddressMode::IndirectY),
+        0x11 => instruction!(0x11, &"ORA", 2, 6, AddressMode::IndirectY),
         0xAA => instruction!(0xAA, &"TAX", 1, 2, AddressMode::Implicit),
         0x8A => instruction!(0x8A, &"TXA", 1, 2, AddressMode::Implicit),
         0xCA => instruction!(0xCA, &"DEX", 1, 2, AddressMode::Implicit),
@@ -169,7 +169,7 @@ lazy_static! {
         0xFD => instruction!(0xFD, &"SBC", 3, 4, AddressMode::AbsoluteX),
         0xF9 => instruction!(0xF9, &"SBC", 3, 4, AddressMode::AbsoluteY),
         0xE1 => instruction!(0xE1, &"SBC", 2, 6, AddressMode::IndirectX),
-        0xF1 => instruction!(0xF1, &"SBC", 2, 4, AddressMode::IndirectY),
+        0xF1 => instruction!(0xF1, &"SBC", 2, 6, AddressMode::IndirectY),
         0x85 => instruction!(0x85, &"STA", 2, 3, AddressMode::ZeroPage),
         0x95 => instruction!(0x95, &"STA", 2, 4, AddressMode::ZeroPageX),
         0x8D => instruction!(0x8D, &"STA", 3, 4, AddressMode::Absolute),
@@ -404,14 +404,15 @@ impl CPU {
                 let mut result = match self.current.opcode {
 
                     // In-memory ops
+                    // LDA, LDX, LDY
                     0xA9 /* LDA #imm */ => Some(self.cycle_memop(CPU::set_a)),
                     0xA5 /* LDA $zp */ => Some(self.cycle_memop(CPU::set_a)),
                     0xB5 /* LDA $zp, x */ => Some(self.cycle_memop(CPU::set_a)),
                     0xAD /* LDA $abs */ => Some(self.cycle_memop(CPU::set_a)),
                     0xBD /* LDA $abs, x */ => Some(self.cycle_memop(CPU::set_a)),
                     0xB9 /* LDA $abs, y */ => Some(self.cycle_memop(CPU::set_a)),
-                    // 0xA1 /* LDA $(ind, x) */ => unimplemented!(),
-                    // 0xB1 /* LDA $(ind), y */ => unimplemented!(),
+                    0xA1 /* LDA $(ind, x) */ => Some(self.cycle_memop(CPU::set_a)),
+                    0xB1 /* LDA $(ind), y */ => Some(self.cycle_memop(CPU::set_a)),
                     0xA2 /* LDX #imm */ => Some(self.cycle_memop(CPU::set_x)),
                     0xA6 /* LDX $zp */ => Some(self.cycle_memop(CPU::set_x)),
                     0xB6 /* LDX $zp, y */ => Some(self.cycle_memop(CPU::set_x)),
@@ -457,11 +458,11 @@ impl CPU {
                         0x39 => self.cycle_bitwise(),
                         0x21 => self.cycle_bitwise(),
                         0x31 => self.cycle_bitwise(),
-                        0x0A => self.cycle_rotate(),
-                        0x06 => self.cycle_rotate(),
-                        0x16 => self.cycle_rotate(),
-                        0x0E => self.cycle_rotate(),
-                        0x1E => self.cycle_rotate(),
+                        0x0A => self.cycle_unimplemented(),
+                        0x06 => self.cycle_unimplemented(),
+                        0x16 => self.cycle_unimplemented(),
+                        0x0E => self.cycle_unimplemented(),
+                        0x1E => self.cycle_unimplemented(),
                         0x24 => self.cycle_bitwise(),
                         0x2C => self.cycle_bitwise(),
                         0x10 => self.cycle_branch(),
@@ -499,11 +500,11 @@ impl CPU {
                         0x4C => self.cycle_jump(),
                         0x6C => self.cycle_jump(),
                         0x20 => self.cycle_jump(),
-                        0x4A => self.cycle_rotate(),
-                        0x46 => self.cycle_rotate(),
-                        0x56 => self.cycle_rotate(),
-                        0x4E => self.cycle_rotate(),
-                        0x5E => self.cycle_rotate(),
+                        0x4A => self.cycle_unimplemented(),
+                        0x46 => self.cycle_unimplemented(),
+                        0x56 => self.cycle_unimplemented(),
+                        0x4E => self.cycle_unimplemented(),
+                        0x5E => self.cycle_unimplemented(),
                         0xEA => self.cycle_single_byte(),
                         0x09 => self.cycle_bitwise(),
                         0x05 => self.cycle_bitwise(),
@@ -521,16 +522,16 @@ impl CPU {
                         0x98 => self.cycle_single_byte(),
                         0x88 => self.cycle_inc_dec(),
                         0xC8 => self.cycle_inc_dec(),
-                        0x2A => self.cycle_rotate(),
-                        0x26 => self.cycle_rotate(),
-                        0x36 => self.cycle_rotate(),
-                        0x2E => self.cycle_rotate(),
-                        0x3E => self.cycle_rotate(),
-                        0x6A => self.cycle_rotate(),
-                        0x66 => self.cycle_rotate(),
-                        0x76 => self.cycle_rotate(),
-                        0x6E => self.cycle_rotate(),
-                        0x7E => self.cycle_rotate(),
+                        0x2A => self.cycle_unimplemented(),
+                        0x26 => self.cycle_unimplemented(),
+                        0x36 => self.cycle_unimplemented(),
+                        0x2E => self.cycle_unimplemented(),
+                        0x3E => self.cycle_unimplemented(),
+                        0x6A => self.cycle_unimplemented(),
+                        0x66 => self.cycle_unimplemented(),
+                        0x76 => self.cycle_unimplemented(),
+                        0x6E => self.cycle_unimplemented(),
+                        0x7E => self.cycle_unimplemented(),
                         0x40 => self.cycle_unimplemented(),
                         0x60 => self.cycle_unimplemented(),
                         0xE9 => self.cycle_math(),
@@ -613,47 +614,6 @@ impl CPU {
 
     fn cycle_unimplemented(&mut self) -> CPUResult<()> {
         bail!(CPUErrorKind::NotImplemented(self.current))
-    }
-
-    fn cycle_rotate(&mut self) -> CPUResult<()> {
-        // 0x2A => instruction!(0x2A, &"ROL", 1, 2, AddressMode::Accumulator),
-        // 0x26 => instruction!(0x26, &"ROL", 2, 5, AddressMode::ZeroPage),
-        // 0x36 => instruction!(0x36, &"ROL", 2, 6, AddressMode::ZeroPageX),
-        // 0x2E => instruction!(0x2E, &"ROL", 3, 6, AddressMode::Absolute),
-        // 0x3E => instruction!(0x3E, &"ROL", 3, 7, AddressMode::AbsoluteX),
-        // 0x6A => instruction!(0x6A, &"ROR", 1, 2, AddressMode::Accumulator),
-        // 0x66 => instruction!(0x66, &"ROR", 2, 5, AddressMode::ZeroPage),
-        // 0x76 => instruction!(0x76, &"ROR", 2, 6, AddressMode::ZeroPageX),
-        // 0x6E => instruction!(0x6E, &"ROR", 3, 6, AddressMode::Absolute),
-        // 0x7E => instruction!(0x7E, &"ROR", 3, 7, AddressMode::AbsoluteX),
-        let inst = self.current;
-        let byte = self.pins.data;
-
-        // match self.current.opcode {
-        //     // ROL #imm
-        //     0x2A => match self.t {
-        //         1 => {
-        //             let carry = self.a & 0x80 == 0x80;
-        //             self.a = (self.a << 1) & self.flags.carry as u8;
-        //             self.flags.carry = carry;
-        //             self.flags.zero = self.a != 0;
-        //             self.flags.negative = self.a & 0x80 == 0x80;
-        //         }
-        //         _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
-        //     },
-        //     // ROL $zp, x
-        //     0x36 => match self.t {
-        //         1 => self.set_addr8(byte),
-        //         2 => {
-        //             let addr = (Wrapping(self.pins.addr as u8) + Wrapping(self.x)).0;
-        //             self.set_addr8(byte);
-        //         }
-        //         3 => self.set_addr8(byte + self.x),
-        //     },
-        //     _ => bail!(CPUErrorKind::InstructionExecution(inst)),
-        // }
-
-        Ok(())
     }
 
     fn cycle_stack(&mut self) -> CPUResult<()> {
@@ -986,86 +946,85 @@ impl CPU {
     }
 
     fn cycle_memop(&mut self, action: fn(&mut CPU, u8)) -> CPUResult<()> {
-        // 0x69 => instruction!(0x69, &"ADC", 2, 2, AddressMode::Immediate),
-        // 0x65 => instruction!(0x65, &"ADC", 2, 3, AddressMode::ZeroPage),
-        // 0x75 => instruction!(0x75, &"ADC", 2, 4, AddressMode::ZeroPageX),
-        // 0x6D => instruction!(0x6D, &"ADC", 3, 4, AddressMode::Absolute),
-        // 0x7D => instruction!(0x7D, &"ADC", 3, 4, AddressMode::AbsoluteX),
-        // 0x79 => instruction!(0x79, &"ADC", 3, 4, AddressMode::AbsoluteY),
-        // 0x61 => instruction!(0x61, &"ADC", 2, 6, AddressMode::IndirectX),
-        // 0x71 => instruction!(0x71, &"ADC", 2, 5, AddressMode::IndirectY),
-        // 0x29 => instruction!(0x29, &"AND", 2, 2, AddressMode::Immediate),
-        // 0x25 => instruction!(0x25, &"AND", 2, 3, AddressMode::ZeroPage),
-        // 0x35 => instruction!(0x35, &"AND", 2, 4, AddressMode::ZeroPageX),
-        // 0x2D => instruction!(0x2D, &"AND", 3, 4, AddressMode::Absolute),
-        // 0x3D => instruction!(0x3D, &"AND", 3, 4, AddressMode::AbsoluteX),
-        // 0x39 => instruction!(0x39, &"AND", 3, 4, AddressMode::AbsoluteY),
-        // 0x21 => instruction!(0x21, &"AND", 2, 6, AddressMode::IndirectX),
-        // 0x31 => instruction!(0x31, &"AND", 2, 5, AddressMode::IndirectY),
-        // 0x24 => instruction!(0x24, &"BIT", 2, 3, AddressMode::ZeroPageX),
-        // 0x2C => instruction!(0x2C, &"BIT", 3, 4, AddressMode::Absolute),
-        // 0xC9 => instruction!(0xC9, &"CMP", 2, 2, AddressMode::Immediate),
-        // 0xC5 => instruction!(0xC5, &"CMP", 2, 3, AddressMode::ZeroPage),
-        // 0xD5 => instruction!(0xD5, &"CMP", 2, 4, AddressMode::ZeroPageX),
-        // 0xCD => instruction!(0xCD, &"CMP", 3, 4, AddressMode::Absolute),
-        // 0xDD => instruction!(0xDD, &"CMP", 3, 4, AddressMode::AbsoluteX),
-        // 0xD9 => instruction!(0xD9, &"CMP", 3, 4, AddressMode::AbsoluteY),
-        // 0xC1 => instruction!(0xC1, &"CMP", 2, 6, AddressMode::IndirectX),
-        // 0xD1 => instruction!(0xD1, &"CMP", 2, 5, AddressMode::IndirectY),
-        // 0xE0 => instruction!(0xE0, &"CPX", 2, 2, AddressMode::Immediate),
-        // 0xE4 => instruction!(0xE4, &"CPX", 2, 3, AddressMode::ZeroPage),
-        // 0xEC => instruction!(0xEC, &"CPX", 3, 4, AddressMode::Absolute),
-        // 0xC0 => instruction!(0xC0, &"CPY", 2, 2, AddressMode::Immediate),
-        // 0xC4 => instruction!(0xC4, &"CPY", 2, 3, AddressMode::ZeroPage),
-        // 0xCC => instruction!(0xCC, &"CPY", 3, 4, AddressMode::Absolute),
-        // 0x49 => instruction!(0x49, &"EOR", 2, 2, AddressMode::Immediate),
-        // 0x45 => instruction!(0x45, &"EOR", 2, 3, AddressMode::ZeroPage),
-        // 0x55 => instruction!(0x55, &"EOR", 2, 4, AddressMode::ZeroPageX),
-        // 0x4D => instruction!(0x4D, &"EOR", 3, 4, AddressMode::Absolute),
-        // 0x5D => instruction!(0x5D, &"EOR", 3, 4, AddressMode::AbsoluteX),
-        // 0x59 => instruction!(0x59, &"EOR", 3, 4, AddressMode::AbsoluteY),
-        // 0x41 => instruction!(0x41, &"EOR", 2, 6, AddressMode::IndirectX),
-        // 0x51 => instruction!(0x51, &"EOR", 2, 5, AddressMode::IndirectY),
-        // 0xA9 => instruction!(0xA9, &"LDA", 2, 2, AddressMode::Immediate),
-        // 0xA5 => instruction!(0xA5, &"LDA", 2, 3, AddressMode::ZeroPage),
-        // 0xB5 => instruction!(0xB5, &"LDA", 2, 4, AddressMode::ZeroPageX),
-        // 0xAD => instruction!(0xAD, &"LDA", 3, 4, AddressMode::Absolute),
-        // 0xBD => instruction!(0xBD, &"LDA", 3, 4, AddressMode::AbsoluteX),
-        // 0xB9 => instruction!(0xB9, &"LDA", 3, 4, AddressMode::AbsoluteY),
-        // 0xA1 => instruction!(0xA1, &"LDA", 2, 6, AddressMode::IndirectX),
-        // 0xB1 => instruction!(0xB1, &"LDA", 2, 5, AddressMode::IndirectY),
-        // 0xA2 => instruction!(0xA2, &"LDX", 2, 2, AddressMode::Immediate),
-        // 0xA6 => instruction!(0xA6, &"LDX", 2, 3, AddressMode::ZeroPage),
-        // 0xB6 => instruction!(0xB6, &"LDX", 2, 4, AddressMode::ZeroPageY),
-        // 0xAE => instruction!(0xAE, &"LDX", 3, 4, AddressMode::Absolute),
-        // 0xBE => instruction!(0xBE, &"LDX", 3, 4, AddressMode::AbsoluteY),
-        // 0xA0 => instruction!(0xA0, &"LDY", 2, 2, AddressMode::Immediate),
-        // 0xA4 => instruction!(0xA4, &"LDY", 2, 3, AddressMode::ZeroPage),
-        // 0xB4 => instruction!(0xB4, &"LDY", 2, 4, AddressMode::ZeroPageY),
-        // 0xAC => instruction!(0xAC, &"LDY", 3, 4, AddressMode::Absolute),
-        // 0xBC => instruction!(0xBC, &"LDY", 3, 4, AddressMode::AbsoluteY),
-        // 0x09 => instruction!(0x09, &"ORA", 2, 2, AddressMode::Immediate),
-        // 0x05 => instruction!(0x05, &"ORA", 2, 3, AddressMode::ZeroPage),
-        // 0x15 => instruction!(0x15, &"ORA", 2, 4, AddressMode::ZeroPageX),
-        // 0x0D => instruction!(0x0D, &"ORA", 3, 4, AddressMode::Absolute),
-        // 0x1D => instruction!(0x1D, &"ORA", 3, 4, AddressMode::AbsoluteX),
-        // 0x19 => instruction!(0x19, &"ORA", 3, 4, AddressMode::AbsoluteY),
-        // 0x01 => instruction!(0x01, &"ORA", 2, 6, AddressMode::IndirectX),
-        // 0x11 => instruction!(0x11, &"ORA", 2, 5, AddressMode::IndirectY),
-        // 0xE9 => instruction!(0xE9, &"SBC", 2, 2, AddressMode::Immediate),
-        // 0xE5 => instruction!(0xE5, &"SBC", 2, 3, AddressMode::ZeroPage),
-        // 0xF5 => instruction!(0xF5, &"SBC", 2, 4, AddressMode::ZeroPageX),
-        // 0xED => instruction!(0xED, &"SBC", 3, 4, AddressMode::Absolute),
-        // 0xFD => instruction!(0xFD, &"SBC", 3, 4, AddressMode::AbsoluteX),
-        // 0xF9 => instruction!(0xF9, &"SBC", 3, 4, AddressMode::AbsoluteY),
-        // 0xE1 => instruction!(0xE1, &"SBC", 2, 6, AddressMode::IndirectX),
-        // 0xF1 => instruction!(0xF1, &"SBC", 2, 4, AddressMode::IndirectY),
+        /*
+        0x65 => instruction!(0x65, &"ADC", 2, 3, AddressMode::ZeroPage),
+        0x75 => instruction!(0x75, &"ADC", 2, 4, AddressMode::ZeroPageX),
+        0x6D => instruction!(0x6D, &"ADC", 3, 4, AddressMode::Absolute),
+        0x7D => instruction!(0x7D, &"ADC", 3, 4, AddressMode::AbsoluteX),
+        0x79 => instruction!(0x79, &"ADC", 3, 4, AddressMode::AbsoluteY),
+        0x61 => instruction!(0x61, &"ADC", 2, 6, AddressMode::IndirectX),
+        0x71 => instruction!(0x71, &"ADC", 2, 5, AddressMode::IndirectY),
+        0x29 => instruction!(0x29, &"AND", 2, 2, AddressMode::Immediate),
+        0x25 => instruction!(0x25, &"AND", 2, 3, AddressMode::ZeroPage),
+        0x35 => instruction!(0x35, &"AND", 2, 4, AddressMode::ZeroPageX),
+        0x2D => instruction!(0x2D, &"AND", 3, 4, AddressMode::Absolute),
+        0x3D => instruction!(0x3D, &"AND", 3, 4, AddressMode::AbsoluteX),
+        0x39 => instruction!(0x39, &"AND", 3, 4, AddressMode::AbsoluteY),
+        0x21 => instruction!(0x21, &"AND", 2, 6, AddressMode::IndirectX),
+        0x31 => instruction!(0x31, &"AND", 2, 5, AddressMode::IndirectY),
+        0x24 => instruction!(0x24, &"BIT", 2, 3, AddressMode::ZeroPageX),
+        0x2C => instruction!(0x2C, &"BIT", 3, 4, AddressMode::Absolute),
+        0xC9 => instruction!(0xC9, &"CMP", 2, 2, AddressMode::Immediate),
+        0xC5 => instruction!(0xC5, &"CMP", 2, 3, AddressMode::ZeroPage),
+        0xD5 => instruction!(0xD5, &"CMP", 2, 4, AddressMode::ZeroPageX),
+        0xCD => instruction!(0xCD, &"CMP", 3, 4, AddressMode::Absolute),
+        0xDD => instruction!(0xDD, &"CMP", 3, 4, AddressMode::AbsoluteX),
+        0xD9 => instruction!(0xD9, &"CMP", 3, 4, AddressMode::AbsoluteY),
+        0xC1 => instruction!(0xC1, &"CMP", 2, 6, AddressMode::IndirectX),
+        0xD1 => instruction!(0xD1, &"CMP", 2, 5, AddressMode::IndirectY),
+        0xE0 => instruction!(0xE0, &"CPX", 2, 2, AddressMode::Immediate),
+        0xE4 => instruction!(0xE4, &"CPX", 2, 3, AddressMode::ZeroPage),
+        0xEC => instruction!(0xEC, &"CPX", 3, 4, AddressMode::Absolute),
+        0xC0 => instruction!(0xC0, &"CPY", 2, 2, AddressMode::Immediate),
+        0xC4 => instruction!(0xC4, &"CPY", 2, 3, AddressMode::ZeroPage),
+        0xCC => instruction!(0xCC, &"CPY", 3, 4, AddressMode::Absolute),
+        0x49 => instruction!(0x49, &"EOR", 2, 2, AddressMode::Immediate),
+        0x45 => instruction!(0x45, &"EOR", 2, 3, AddressMode::ZeroPage),
+        0x55 => instruction!(0x55, &"EOR", 2, 4, AddressMode::ZeroPageX),
+        0x4D => instruction!(0x4D, &"EOR", 3, 4, AddressMode::Absolute),
+        0x5D => instruction!(0x5D, &"EOR", 3, 4, AddressMode::AbsoluteX),
+        0x59 => instruction!(0x59, &"EOR", 3, 4, AddressMode::AbsoluteY),
+        0x41 => instruction!(0x41, &"EOR", 2, 6, AddressMode::IndirectX),
+        0x51 => instruction!(0x51, &"EOR", 2, 5, AddressMode::IndirectY),
+        0xA9 => instruction!(0xA9, &"LDA", 2, 2, AddressMode::Immediate),
+        0xA5 => instruction!(0xA5, &"LDA", 2, 3, AddressMode::ZeroPage),
+        0xB5 => instruction!(0xB5, &"LDA", 2, 4, AddressMode::ZeroPageX),
+        0xAD => instruction!(0xAD, &"LDA", 3, 4, AddressMode::Absolute),
+        0xBD => instruction!(0xBD, &"LDA", 3, 4, AddressMode::AbsoluteX),
+        0xB9 => instruction!(0xB9, &"LDA", 3, 4, AddressMode::AbsoluteY),
+        0xA1 => instruction!(0xA1, &"LDA", 2, 6, AddressMode::IndirectX),
+        0xB1 => instruction!(0xB1, &"LDA", 2, 5, AddressMode::IndirectY),
+        0xA2 => instruction!(0xA2, &"LDX", 2, 2, AddressMode::Immediate),
+        0xA6 => instruction!(0xA6, &"LDX", 2, 3, AddressMode::ZeroPage),
+        0xB6 => instruction!(0xB6, &"LDX", 2, 4, AddressMode::ZeroPageY),
+        0xAE => instruction!(0xAE, &"LDX", 3, 4, AddressMode::Absolute),
+        0xBE => instruction!(0xBE, &"LDX", 3, 4, AddressMode::AbsoluteY),
+        0xA0 => instruction!(0xA0, &"LDY", 2, 2, AddressMode::Immediate),
+        0xA4 => instruction!(0xA4, &"LDY", 2, 3, AddressMode::ZeroPage),
+        0xB4 => instruction!(0xB4, &"LDY", 2, 4, AddressMode::ZeroPageY),
+        0xAC => instruction!(0xAC, &"LDY", 3, 4, AddressMode::Absolute),
+        0xBC => instruction!(0xBC, &"LDY", 3, 4, AddressMode::AbsoluteY),
+        0x09 => instruction!(0x09, &"ORA", 2, 2, AddressMode::Immediate),
+        0x05 => instruction!(0x05, &"ORA", 2, 3, AddressMode::ZeroPage),
+        0x15 => instruction!(0x15, &"ORA", 2, 4, AddressMode::ZeroPageX),
+        0x0D => instruction!(0x0D, &"ORA", 3, 4, AddressMode::Absolute),
+        0x1D => instruction!(0x1D, &"ORA", 3, 4, AddressMode::AbsoluteX),
+        0x19 => instruction!(0x19, &"ORA", 3, 4, AddressMode::AbsoluteY),
+        0x01 => instruction!(0x01, &"ORA", 2, 6, AddressMode::IndirectX),
+        0x11 => instruction!(0x11, &"ORA", 2, 5, AddressMode::IndirectY),
+        0xE9 => instruction!(0xE9, &"SBC", 2, 2, AddressMode::Immediate),
+        0xE5 => instruction!(0xE5, &"SBC", 2, 3, AddressMode::ZeroPage),
+        0xF5 => instruction!(0xF5, &"SBC", 2, 4, AddressMode::ZeroPageX),
+        0xED => instruction!(0xED, &"SBC", 3, 4, AddressMode::Absolute),
+        0xFD => instruction!(0xFD, &"SBC", 3, 4, AddressMode::AbsoluteX),
+        0xF9 => instruction!(0xF9, &"SBC", 3, 4, AddressMode::AbsoluteY),
+        0xE1 => instruction!(0xE1, &"SBC", 2, 6, AddressMode::IndirectX),
+        0xF1 => instruction!(0xF1, &"SBC", 2, 4, AddressMode::IndirectY),
+        */
 
         let data = self.pins.data;
         let addr = self.pins.addr;
         let inst = self.current;
-        let mode = self.current.mode;
-        println!("mode {:?}", mode);
 
         match inst.mode {
             AddressMode::Immediate => match self.t {
@@ -1097,10 +1056,10 @@ impl CPU {
             },
             AddressMode::IndirectX => match self.t {
                 1 => self.set_addr8(data),
-                2 => self.set_addr8((Wrapping(addr as u8) + Wrapping(self.x)).0),
+                2 => self.set_addr16(addr + self.x as u16),
                 3 => {
-                    self.addr_buf[0] = data;
                     self.set_addr16(addr + 1);
+                    self.addr_buf[0] = data;
                 }
                 4 => self.set_addr(self.addr_buf[0], data),
                 5 => action(self, data),
@@ -1113,10 +1072,11 @@ impl CPU {
                     self.set_addr16(addr + 1);
                 }
                 3 => {
-                    let low = (Wrapping(addr as u8) + Wrapping(self.y)).0;
+                    let low = (Wrapping(self.addr_buf[0]) + Wrapping(self.y)).0;
                     let carry = low < self.y;
-                    let high = self.addr_buf[0] + (carry as u8);
+                    let high = data + (carry as u8);
                     self.set_addr(low, high);
+
                     if !carry {
                         self.current.cycles -= 1;
                     }
@@ -1136,6 +1096,7 @@ impl CPU {
                     let carry = low < self.x;
                     let high = data + (carry as u8);
                     self.set_addr(low, high);
+
                     if !carry {
                         self.current.cycles -= 1;
                     }
@@ -1155,6 +1116,7 @@ impl CPU {
                     let carry = low < self.y;
                     let high = data + (carry as u8);
                     self.set_addr(low, high);
+
                     if !carry {
                         self.current.cycles -= 1;
                     }
@@ -1601,6 +1563,35 @@ mod test {
         ld_absxy_test!(0xB9, a, y); // LDA $abs, y
         ld_absxy_test!(0xBE, x, y); // LDX $abs, y
         ld_absxy_test!(0xBC, y, x); // LDY $abs, x
+    }
+
+    #[test]
+    fn test_ld_indxy() {
+        // 0xA1 => instruction!(0xA1, &"LDA", 2, 6, AddressMode::IndirectX),
+        // 0xB1 => instruction!(0xB1, &"LDA", 2, 5, AddressMode::IndirectY),
+
+        cpu_test!(&[0xA1, 0x80],
+            init: |vm: &mut VM| {
+                vm.memory[0x81] = 0x01;
+                vm.memory[0x82] = 0x09;
+                vm.memory[0x901] = 1;
+                vm.cpu.x = 1;
+            },
+            exit: |vm| assert_eq!(vm.cpu.a, 1)
+        );
+
+        cpu_test!(&[0xB1, 0x80],
+            init: |vm: &mut VM| {
+                vm.memory[0x80] = 0x01;
+                vm.memory[0x81] = 0x09;
+                vm.memory[0x902] = 1;
+                vm.cpu.y = 1;
+            },
+            exit: |vm| assert_eq!(vm.cpu.a, 1)
+        );
+
+        // ld_indx_test!(0xA1, a, x); // LDA $(ind,x)
+        // ld_indx_test!(0xB1, a, y); // LDA $(ind), y)
     }
 
     #[test]
