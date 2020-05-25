@@ -1,4 +1,4 @@
-use std::{cmp::min, collections::HashMap, fmt, num::Wrapping};
+use std::{cmp::min, cmp::max, collections::HashMap, fmt, num::Wrapping};
 
 error_chain! {
     types {
@@ -234,7 +234,6 @@ impl fmt::Display for Pins {
 }
 
 impl Pins {
-
     fn cycle_reset(&mut self) {
         self.rw = true;
         self.sync = false;
@@ -397,7 +396,7 @@ pub struct CPU {
     pub flags: Flags,
     pub pins: Pins,
     pub cycles: u64,
-    pc_write: bool,
+    jumped: bool,
     mdr: u8,
     pub ir_addr: u16,
     pub ir: Instruction,
@@ -417,7 +416,7 @@ impl CPU {
             flags: Flags::default(),
             pins: Pins::startup(),
             cycles: 0,
-            pc_write: false,
+            jumped: false,
             mdr: 0,
             ir: decode(0xEA).unwrap(), // TODO
             ir_addr: 0,
@@ -436,10 +435,10 @@ impl CPU {
         );
 
         self.pins.cycle_reset();
-        self.pc_write = false;
+        self.jumped = false;
 
         let result = match self.t {
-            0 => self.read_instruction(),
+            0 => self.new_instruction(),
             _ => {
                 self.update_instruction();
                 self.dispatch(self.ir.opcode)
@@ -449,8 +448,9 @@ impl CPU {
         match self.t {
             t if t + 1 == self.ir.cycles => {
                 self.t = 0;
-                if !self.pc_write {
+                if !self.jumped {
                     self.pc = self.ir_addr + self.ir.bytes as u16;
+                    self.jumped = false;
                 }
                 self.pins.set_addr16(self.pc);
                 self.pins.sync = true;
@@ -477,7 +477,7 @@ impl CPU {
         result
     }
 
-    fn read_instruction(&mut self) -> CPUResult<()> {
+    fn new_instruction(&mut self) -> CPUResult<()> {
         self.mdr = 0;
         self.ir_addr = self.pins.addr;
         self.ir = decode(self.pins.data)?;
@@ -487,12 +487,8 @@ impl CPU {
 
     fn update_instruction(&mut self) {
         match self.t {
-            1 if self.ir.bytes > 1 => {
-                self.ir.low = self.pins.data;
-            }
-            2 if self.ir.bytes > 2 => {
-                self.ir.high = self.pins.data;
-            }
+            1 if self.ir.bytes > 1 => self.ir.low = self.pins.data,
+            2 if self.ir.bytes > 2 => self.ir.high = self.pins.data,
             _ => (),
         }
     }
@@ -507,14 +503,14 @@ impl CPU {
             0x79 /* ADC $abs,y   */ => self.cycle_memop(CPU::add_with_carry),
             0x61 /* ADC $(ind,x) */ => self.cycle_memop(CPU::add_with_carry),
             0x71 /* ADC $(ind),y */ => self.cycle_memop(CPU::add_with_carry),
-            0x29 /* AND #imm     */ => self.cycle_unimplemented(CPU::nop),
-            0x25 /* AND $zp      */ => self.cycle_unimplemented(CPU::nop),
-            0x35 /* AND $zp,x    */ => self.cycle_unimplemented(CPU::nop),
-            0x2D /* AND $abs     */ => self.cycle_unimplemented(CPU::nop),
-            0x3D /* AND $abs,x   */ => self.cycle_unimplemented(CPU::nop),
-            0x39 /* AND $abs,y   */ => self.cycle_unimplemented(CPU::nop),
-            0x21 /* AND $(ind,x) */ => self.cycle_unimplemented(CPU::nop),
-            0x31 /* AND $(ind),y */ => self.cycle_unimplemented(CPU::nop),
+            0x29 /* AND #imm     */ => self.cycle_memop(CPU::and),
+            0x25 /* AND $zp      */ => self.cycle_memop(CPU::and),
+            0x35 /* AND $zp,x    */ => self.cycle_memop(CPU::and),
+            0x2D /* AND $abs     */ => self.cycle_memop(CPU::and),
+            0x3D /* AND $abs,x   */ => self.cycle_memop(CPU::and),
+            0x39 /* AND $abs,y   */ => self.cycle_memop(CPU::and),
+            0x21 /* AND $(ind,x) */ => self.cycle_memop(CPU::and),
+            0x31 /* AND $(ind),y */ => self.cycle_memop(CPU::and),
             0x0A /* ASL A        */ => self.cycle_unimplemented(CPU::nop),
             0x06 /* ASL $zp      */ => self.cycle_unimplemented(CPU::nop),
             0x16 /* ASL $zp,x    */ => self.cycle_unimplemented(CPU::nop),
@@ -624,13 +620,13 @@ impl CPU {
             0x40 /* RTI          */ => self.cycle_unimplemented(CPU::nop),
             0x60 /* RTS          */ => self.cycle_unimplemented(CPU::nop),
             0xE9 /* SBC #imm     */ => self.cycle_unimplemented(CPU::nop),
-            0xE5 /* SBC $zp      */ => self.cycle_unimplemented(CPU::nop),
-            0xF5 /* SBC $zp,x    */ => self.cycle_unimplemented(CPU::nop),
-            0xED /* SBC $abs     */ => self.cycle_unimplemented(CPU::nop),
-            0xFD /* SBC $abs,x   */ => self.cycle_unimplemented(CPU::nop),
-            0xF9 /* SBC $abs,y   */ => self.cycle_unimplemented(CPU::nop),
-            0xE1 /* SBC $(ind,x) */ => self.cycle_unimplemented(CPU::nop),
-            0xF1 /* SBC $(ind),y */ => self.cycle_unimplemented(CPU::nop),
+            0xE5 /* SBC $zp      */ => self.cycle_memop(CPU::sub_with_carry),
+            0xF5 /* SBC $zp,x    */ => self.cycle_memop(CPU::sub_with_carry),
+            0xED /* SBC $abs     */ => self.cycle_memop(CPU::sub_with_carry),
+            0xFD /* SBC $abs,x   */ => self.cycle_memop(CPU::sub_with_carry),
+            0xF9 /* SBC $abs,y   */ => self.cycle_memop(CPU::sub_with_carry),
+            0xE1 /* SBC $(ind,x) */ => self.cycle_memop(CPU::sub_with_carry),
+            0xF1 /* SBC $(ind),y */ => self.cycle_memop(CPU::sub_with_carry),
             0x85 /* STA $zp      */ => self.cycle_store(CPU::get_a),
             0x95 /* STA $zp,x    */ => self.cycle_store(CPU::get_a),
             0x8D /* STA $abs     */ => self.cycle_store(CPU::get_a),
@@ -1310,16 +1306,40 @@ impl CPU {
         self.flags.negative = self.a & 0x80 == 0x80;
     }
 
+    fn and(&mut self, byte: u8) {
+        self.a = self.a & byte;
+        self.flags.zero = self.a == 0;
+        self.flags.negative = self.a & 0x80 == 0x80;
+    }
+
     /* Math */
 
     fn add_with_carry(&mut self, byte: u8) {
-        let sum = self.a as u16 + byte as u16 + self.flags.carry as u16;
-        self.flags.carry = sum > 0xFF;
-        let sum = sum as u8;
+        let (sum, carry) = {
+            let (s, c1) = self.a.overflowing_add(byte);
+            let (s, c2) = s.overflowing_add(self.flags.carry as u8);
+            (s, c1 | c2)
+        };
+
+        self.flags.carry = carry;
         self.flags.zero = sum == 0;
         self.flags.overflow = (!(self.a ^ byte) & (self.a ^ sum) & 0x80) != 0;
         self.flags.negative = sum & 0x80 == 0x80;
         self.a = sum;
+    }
+
+    fn sub_with_carry(&mut self, byte: u8) {
+        let (diff, carry) = {
+            let (d, c1) = self.a.overflowing_sub(byte);
+            let (d, c2) = d.overflowing_sub(!self.flags.carry as u8);
+            (d, c1 | c2)
+        };
+
+        self.flags.carry = !carry;
+        self.flags.zero = diff == 0;
+        self.flags.overflow = (!(self.a ^ byte) & (self.a ^ diff) & 0x80) != 0;
+        self.flags.negative = diff & 0x80 == 0x80;
+        self.a = diff;
     }
 
     /* Misc */
@@ -1329,13 +1349,13 @@ impl CPU {
     fn set_pc(&mut self, low: u8, high: u8) {
         self.pc = (low as u16) | ((high as u16) << 8);
         self.pins.addr = self.pc;
-        self.pc_write = true;
+        self.jumped = true;
     }
 
     fn set_pc16(&mut self, pc: u16) {
         self.pc = pc;
         self.pins.addr = self.pc;
-        self.pc_write = true;
+        self.jumped = true;
     }
 
     fn write_data(&mut self, getter: fn(&CPU) -> u8) {
@@ -1451,6 +1471,7 @@ impl VM {
 
         self.program_end = end as u16;
         self.cpu.pc = start;
+        self.cpu.pins.addr = start;
         self.cpu.pins.data = self.memory[start as usize];
     }
 
