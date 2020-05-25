@@ -347,8 +347,8 @@ impl InstructionsWindow {
 
                 let text1 = disassemble(&inst);
                 let text2 = match inst.bytes {
-                    3 => format!("{:02X} {:02X}{:02X}", inst.opcode, inst.arg1, inst.arg2),
-                    2 => format!("{:02X} {:02X}  ", inst.opcode, inst.arg1),
+                    3 => format!("{:02X} {:02X}{:02X}", inst.opcode, inst.low, inst.high),
+                    2 => format!("{:02X} {:02X}  ", inst.opcode, inst.low),
                     _ => format!("{:02X}     ", inst.opcode),
                 };
                 let text3 = format!("{:04X} {} {}", addr, text2, text1);

@@ -28,11 +28,17 @@ macro_rules! instruction {
             opcode: $opcode,
             name: $name,
             mode: $mode,
-            arg1: 0,
-            arg2: 0,
+            low: 0,
+            high: 0,
             bytes: $bytes,
             cycles: $cycles,
         }
+    };
+}
+
+macro_rules! wrap_add {
+    ($a:expr, $b:expr) => {
+        (Wrapping($a) + Wrapping($b)).0
     };
 }
 
@@ -42,16 +48,16 @@ lazy_static! {
         0x65 => instruction!(0x65, &"ADC", 2, 3, AddressMode::ZeroPage),
         0x75 => instruction!(0x75, &"ADC", 2, 4, AddressMode::ZeroPageX),
         0x6D => instruction!(0x6D, &"ADC", 3, 4, AddressMode::Absolute),
-        0x7D => instruction!(0x7D, &"ADC", 3, 4, AddressMode::AbsoluteX),
-        0x79 => instruction!(0x79, &"ADC", 3, 4, AddressMode::AbsoluteY),
+        0x7D => instruction!(0x7D, &"ADC", 3, 5, AddressMode::AbsoluteX),
+        0x79 => instruction!(0x79, &"ADC", 3, 5, AddressMode::AbsoluteY),
         0x61 => instruction!(0x61, &"ADC", 2, 6, AddressMode::IndirectX),
         0x71 => instruction!(0x71, &"ADC", 2, 6, AddressMode::IndirectY),
         0x29 => instruction!(0x29, &"AND", 2, 2, AddressMode::Immediate),
         0x25 => instruction!(0x25, &"AND", 2, 3, AddressMode::ZeroPage),
         0x35 => instruction!(0x35, &"AND", 2, 4, AddressMode::ZeroPageX),
         0x2D => instruction!(0x2D, &"AND", 3, 4, AddressMode::Absolute),
-        0x3D => instruction!(0x3D, &"AND", 3, 4, AddressMode::AbsoluteX),
-        0x39 => instruction!(0x39, &"AND", 3, 4, AddressMode::AbsoluteY),
+        0x3D => instruction!(0x3D, &"AND", 3, 5, AddressMode::AbsoluteX),
+        0x39 => instruction!(0x39, &"AND", 3, 5, AddressMode::AbsoluteY),
         0x21 => instruction!(0x21, &"AND", 2, 6, AddressMode::IndirectX),
         0x31 => instruction!(0x31, &"AND", 2, 6, AddressMode::IndirectY),
         0x0A => instruction!(0x0A, &"ASL", 1, 2, AddressMode::Accumulator),
@@ -74,8 +80,8 @@ lazy_static! {
         0xC5 => instruction!(0xC5, &"CMP", 2, 3, AddressMode::ZeroPage),
         0xD5 => instruction!(0xD5, &"CMP", 2, 4, AddressMode::ZeroPageX),
         0xCD => instruction!(0xCD, &"CMP", 3, 4, AddressMode::Absolute),
-        0xDD => instruction!(0xDD, &"CMP", 3, 4, AddressMode::AbsoluteX),
-        0xD9 => instruction!(0xD9, &"CMP", 3, 4, AddressMode::AbsoluteY),
+        0xDD => instruction!(0xDD, &"CMP", 3, 5, AddressMode::AbsoluteX),
+        0xD9 => instruction!(0xD9, &"CMP", 3, 5, AddressMode::AbsoluteY),
         0xC1 => instruction!(0xC1, &"CMP", 2, 6, AddressMode::IndirectX),
         0xD1 => instruction!(0xD1, &"CMP", 2, 6, AddressMode::IndirectY),
         0xE0 => instruction!(0xE0, &"CPX", 2, 2, AddressMode::Immediate),
@@ -92,8 +98,8 @@ lazy_static! {
         0x45 => instruction!(0x45, &"EOR", 2, 3, AddressMode::ZeroPage),
         0x55 => instruction!(0x55, &"EOR", 2, 4, AddressMode::ZeroPageX),
         0x4D => instruction!(0x4D, &"EOR", 3, 4, AddressMode::Absolute),
-        0x5D => instruction!(0x5D, &"EOR", 3, 4, AddressMode::AbsoluteX),
-        0x59 => instruction!(0x59, &"EOR", 3, 4, AddressMode::AbsoluteY),
+        0x5D => instruction!(0x5D, &"EOR", 3, 5, AddressMode::AbsoluteX),
+        0x59 => instruction!(0x59, &"EOR", 3, 5, AddressMode::AbsoluteY),
         0x41 => instruction!(0x41, &"EOR", 2, 6, AddressMode::IndirectX),
         0x51 => instruction!(0x51, &"EOR", 2, 6, AddressMode::IndirectY),
         0x18 => instruction!(0x18, &"CLC", 1, 2, AddressMode::Implicit),
@@ -138,14 +144,14 @@ lazy_static! {
         0x05 => instruction!(0x05, &"ORA", 2, 3, AddressMode::ZeroPage),
         0x15 => instruction!(0x15, &"ORA", 2, 4, AddressMode::ZeroPageX),
         0x0D => instruction!(0x0D, &"ORA", 3, 4, AddressMode::Absolute),
-        0x1D => instruction!(0x1D, &"ORA", 3, 4, AddressMode::AbsoluteX),
-        0x19 => instruction!(0x19, &"ORA", 3, 4, AddressMode::AbsoluteY),
+        0x1D => instruction!(0x1D, &"ORA", 3, 5, AddressMode::AbsoluteX),
+        0x19 => instruction!(0x19, &"ORA", 3, 5, AddressMode::AbsoluteY),
         0x01 => instruction!(0x01, &"ORA", 2, 6, AddressMode::IndirectX),
         0x11 => instruction!(0x11, &"ORA", 2, 6, AddressMode::IndirectY),
         0xAA => instruction!(0xAA, &"TAX", 1, 2, AddressMode::Implicit),
         0x8A => instruction!(0x8A, &"TXA", 1, 2, AddressMode::Implicit),
         0xCA => instruction!(0xCA, &"DEX", 1, 2, AddressMode::Implicit),
-        0xE8 => instruction!(0xE8, &"INX", 1, 2, AddressMode::Implicit),
+        0xE8 => instruction!(0xE8, &"tNX", 1, 2, AddressMode::Implicit),
         0xA8 => instruction!(0xA8, &"TAY", 1, 2, AddressMode::Implicit),
         0x98 => instruction!(0x98, &"TYA", 1, 2, AddressMode::Implicit),
         0x88 => instruction!(0x88, &"DEY", 1, 2, AddressMode::Implicit),
@@ -166,8 +172,8 @@ lazy_static! {
         0xE5 => instruction!(0xE5, &"SBC", 2, 3, AddressMode::ZeroPage),
         0xF5 => instruction!(0xF5, &"SBC", 2, 4, AddressMode::ZeroPageX),
         0xED => instruction!(0xED, &"SBC", 3, 4, AddressMode::Absolute),
-        0xFD => instruction!(0xFD, &"SBC", 3, 4, AddressMode::AbsoluteX),
-        0xF9 => instruction!(0xF9, &"SBC", 3, 4, AddressMode::AbsoluteY),
+        0xFD => instruction!(0xFD, &"SBC", 3, 5, AddressMode::AbsoluteX),
+        0xF9 => instruction!(0xF9, &"SBC", 3, 5, AddressMode::AbsoluteY),
         0xE1 => instruction!(0xE1, &"SBC", 2, 6, AddressMode::IndirectX),
         0xF1 => instruction!(0xF1, &"SBC", 2, 6, AddressMode::IndirectY),
         0x85 => instruction!(0x85, &"STA", 2, 3, AddressMode::ZeroPage),
@@ -184,7 +190,7 @@ lazy_static! {
         0x08 => instruction!(0x08, &"PHP", 1, 3, AddressMode::Implicit),
         0x28 => instruction!(0x28, &"PLP", 1, 4, AddressMode::Implicit),
         0x86 => instruction!(0x86, &"STX", 2, 3, AddressMode::ZeroPage),
-        0x96 => instruction!(0x96, &"STX", 2, 4, AddressMode::ZeroPageX),
+        0x96 => instruction!(0x96, &"STX", 2, 4, AddressMode::ZeroPageY),
         0x8E => instruction!(0x8E, &"STX", 3, 4, AddressMode::Absolute),
         0x84 => instruction!(0x84, &"STY", 2, 3, AddressMode::ZeroPage),
         0x94 => instruction!(0x94, &"STY", 2, 4, AddressMode::ZeroPageX),
@@ -201,6 +207,8 @@ pub struct Pins {
     pub res: bool,
     pub rw: bool,
     pub sync: bool,
+    addr_write: bool,
+    data_write: bool,
 }
 
 impl Pins {
@@ -222,6 +230,65 @@ impl fmt::Display for Pins {
             self.irq as u8, self.irq as u8, self.irq as u8, self.irq as u8, self.irq as u8
         );
         f.write_str(&format!("{{{}, {}}}", bus, flags))
+    }
+}
+
+impl Pins {
+
+    fn cycle_reset(&mut self) {
+        self.rw = true;
+        self.sync = false;
+        self.addr_write = false;
+        self.data_write = false;
+    }
+
+    fn addr_changed(&self) -> bool {
+        self.addr_write
+    }
+
+    fn set_data(&mut self, data: u8) {
+        self.data = data;
+        self.rw = false;
+    }
+
+    fn set_addr(&mut self, low: u8, high: u8) {
+        self.addr = (low as u16) | ((high as u16) << 8);
+        self.addr_write = true;
+    }
+
+    fn set_addr8(&mut self, low: u8) {
+        self.addr = low as u16;
+        self.addr_write = true;
+    }
+
+    fn set_addr16(&mut self, addr: u16) {
+        self.addr = addr;
+        self.addr_write = true;
+    }
+
+    fn inc_addr(&mut self) {
+        self.addr = self.addr.wrapping_add(1)
+    }
+
+    fn dec_addr(&mut self) {
+        self.addr = self.addr.wrapping_sub(1)
+    }
+
+    fn inc_addr_page(&mut self) {
+        self.addr = self.addr.wrapping_add(0x100)
+    }
+
+    fn set_addr_offset_nocarry(&mut self, low: u8, high: u8, offset: u8) -> bool {
+        let (low, carry) = low.overflowing_add(offset);
+        let high = high;
+        self.set_addr(low, high);
+        carry
+    }
+
+    fn set_addr_offset(&mut self, low: u8, high: u8, offset: u8) {
+        let (low, carry) = low.overflowing_add(offset);
+        let high = high + carry as u8;
+        self.set_addr(low, high);
     }
 }
 
@@ -247,8 +314,8 @@ pub struct Instruction {
     pub opcode: u8,
     pub name: &'static str,
     pub mode: AddressMode,
-    pub arg1: u8,
-    pub arg2: u8,
+    pub low: u8,
+    pub high: u8,
     pub bytes: u8,
     pub cycles: u8,
 }
@@ -262,8 +329,8 @@ impl fmt::Display for Instruction {
             self.bytes,
             self.mode,
             match self.bytes {
-                2 => format!(" {}", self.arg1),
-                3 => format!(" {}, {}", self.arg1, self.arg2),
+                2 => format!(" {}", self.low),
+                3 => format!(" {}, {}", self.low, self.high),
                 _ => format!(""),
             }
         ))
@@ -330,14 +397,15 @@ pub struct CPU {
     pub flags: Flags,
     pub pins: Pins,
     pub cycles: u64,
-    addr_write: bool,
     pc_write: bool,
-    addr_buf: [u8; 2],
-    pub current_addr: u16,
-    pub current: Instruction,
+    mdr: u8,
+    pub ir_addr: u16,
+    pub ir: Instruction,
 }
 
 impl CPU {
+    const STACK_PAGE: u8 = 0x1;
+
     pub fn new() -> Self {
         Self {
             pc: 0,
@@ -349,35 +417,14 @@ impl CPU {
             flags: Flags::default(),
             pins: Pins::startup(),
             cycles: 0,
-            addr_write: false,
             pc_write: false,
-            addr_buf: [0, 0],
-            current: decode(0xEA).unwrap(), // TODO
-            current_addr: 0,
+            mdr: 0,
+            ir: decode(0xEA).unwrap(), // TODO
+            ir_addr: 0,
         }
     }
 
-    fn fetch_data(&mut self) -> CPUResult<()> {
-        match self.t {
-            0 => {
-                self.current_addr = self.pins.addr;
-                self.addr_buf = [0, 0];
-                let decoded = decode(self.pins.data)?;
-                trace!("decoded @ {:#04X}: {}", self.pins.addr, decoded);
-                self.current = decoded;
-                Ok(())
-            }
-            1 => {
-                self.current.arg1 = self.pins.data;
-                Ok(()) // TODO
-            }
-            2 => {
-                self.current.arg2 = self.pins.data;
-                Ok(()) // TODO
-            }
-            _ => Ok(()), // TODO
-        }
-    }
+    /* Instruction Execution */
 
     pub fn cycle(&mut self) -> CPUResult<()> {
         trace!(
@@ -385,770 +432,685 @@ impl CPU {
             self.cycles,
             self.t,
             self.pins,
-            self.current
+            self.ir
         );
 
-        self.fetch_data()?; // TODO
-        self.pins.rw = true;
-        self.addr_write = false;
+        self.pins.cycle_reset();
         self.pc_write = false;
 
         let result = match self.t {
-            0 => {
-                self.t += 1;
-                self.pc += 1;
-                self.set_addr16(self.pc);
-                Ok(())
+            0 => self.read_instruction(),
+            _ => {
+                self.update_instruction();
+                self.dispatch(self.ir.opcode)
             }
-            1..=6 => {
-                let mut result = match self.current.opcode {
-
-                    // In-memory ops
-                    // LDA, LDX, LDY
-                    0xA9 /* LDA #imm */ => Some(self.cycle_memop(CPU::set_a)),
-                    0xA5 /* LDA $zp */ => Some(self.cycle_memop(CPU::set_a)),
-                    0xB5 /* LDA $zp, x */ => Some(self.cycle_memop(CPU::set_a)),
-                    0xAD /* LDA $abs */ => Some(self.cycle_memop(CPU::set_a)),
-                    0xBD /* LDA $abs, x */ => Some(self.cycle_memop(CPU::set_a)),
-                    0xB9 /* LDA $abs, y */ => Some(self.cycle_memop(CPU::set_a)),
-                    0xA1 /* LDA $(ind, x) */ => Some(self.cycle_memop(CPU::set_a)),
-                    0xB1 /* LDA $(ind), y */ => Some(self.cycle_memop(CPU::set_a)),
-                    0xA2 /* LDX #imm */ => Some(self.cycle_memop(CPU::set_x)),
-                    0xA6 /* LDX $zp */ => Some(self.cycle_memop(CPU::set_x)),
-                    0xB6 /* LDX $zp, y */ => Some(self.cycle_memop(CPU::set_x)),
-                    0xAE /* LDX $abs */ => Some(self.cycle_memop(CPU::set_x)),
-                    0xBE /* LDX $abs, y */ => Some(self.cycle_memop(CPU::set_x)),
-                    0xA0 /* LDY #imm */ => Some(self.cycle_memop(CPU::set_y)),
-                    0xA4 /* LDY $zp */ => Some(self.cycle_memop(CPU::set_y)),
-                    0xB4 /* LDY $zp, x */ => Some(self.cycle_memop(CPU::set_y)),
-                    0xAC /* LDY $abs */ => Some(self.cycle_memop(CPU::set_y)),
-                    0xBC /* LDY $abs, y */ => Some(self.cycle_memop(CPU::set_y)),
-
-                    0xC9 /* CMP #imm */ => Some(self.cycle_memop(CPU::compare_a)),
-                    // 0xC5 /* CMP $zp */ => unimplemented!(),
-                    // 0xD5 /* CMP $zp, x */ => unimplemented!(),
-                    0xCD /* CMP $abs */ => Some(self.cycle_memop(CPU::compare_a)),
-                    // 0xDD /* CMP $abs, x */ => unimplemented!(),
-                    // 0xD9 /* CMP $abs, y */ => unimplemented!(),
-                    // 0xC1 /* CMP $(ind, x) */ => unimplemented!(),
-                    // 0xD1 /* CMP $(ind), y */ => unimplemented!(),
-                    0xE0 /* CPX #imm */ => Some(self.cycle_memop(CPU::compare_x)),
-                    // 0xE4 /* CPX $zp */ => unimplemented!(),
-                    0xEC /* CPX $abs */ => Some(self.cycle_memop(CPU::compare_x)),
-                    0xC0 /* CPY #imm */ => Some(self.cycle_memop(CPU::compare_y)),
-                    // 0xC4 /* CPY $zp */ => unimplemented!(),
-                    0xCC /* CPY $abs */ => Some(self.cycle_memop(CPU::compare_y)),
-                    _ => None,
-                };
-                if result.is_none() {
-                    result = Some(match self.current.opcode {
-                        0x69 => self.cycle_math(),
-                        0x65 => self.cycle_math(),
-                        0x75 => self.cycle_math(),
-                        0x6D => self.cycle_math(),
-                        0x7D => self.cycle_math(),
-                        0x79 => self.cycle_math(),
-                        0x61 => self.cycle_math(),
-                        0x71 => self.cycle_math(),
-                        0x29 => self.cycle_bitwise(),
-                        0x25 => self.cycle_bitwise(),
-                        0x35 => self.cycle_bitwise(),
-                        0x2D => self.cycle_bitwise(),
-                        0x3D => self.cycle_bitwise(),
-                        0x39 => self.cycle_bitwise(),
-                        0x21 => self.cycle_bitwise(),
-                        0x31 => self.cycle_bitwise(),
-                        0x0A => self.cycle_unimplemented(),
-                        0x06 => self.cycle_unimplemented(),
-                        0x16 => self.cycle_unimplemented(),
-                        0x0E => self.cycle_unimplemented(),
-                        0x1E => self.cycle_unimplemented(),
-                        0x24 => self.cycle_bitwise(),
-                        0x2C => self.cycle_bitwise(),
-                        0x10 => self.cycle_branch(),
-                        0x30 => self.cycle_branch(),
-                        0x50 => self.cycle_branch(),
-                        0x70 => self.cycle_branch(),
-                        0x90 => self.cycle_branch(),
-                        0xB0 => self.cycle_branch(),
-                        0xD0 => self.cycle_branch(),
-                        0xF0 => self.cycle_branch(),
-                        0x00 => self.cycle_unimplemented(),
-                        0xC6 => self.cycle_inc_dec(),
-                        0xD6 => self.cycle_inc_dec(),
-                        0xCE => self.cycle_inc_dec(),
-                        0xDE => self.cycle_inc_dec(),
-                        0x49 => self.cycle_bitwise(),
-                        0x45 => self.cycle_bitwise(),
-                        0x55 => self.cycle_bitwise(),
-                        0x4D => self.cycle_bitwise(),
-                        0x5D => self.cycle_bitwise(),
-                        0x59 => self.cycle_bitwise(),
-                        0x41 => self.cycle_bitwise(),
-                        0x51 => self.cycle_bitwise(),
-                        0x18 => self.cycle_single_byte(),
-                        0x38 => self.cycle_single_byte(),
-                        0x58 => self.cycle_single_byte(),
-                        0x78 => self.cycle_single_byte(),
-                        0xB8 => self.cycle_single_byte(),
-                        0xD8 => self.cycle_single_byte(),
-                        0xF8 => self.cycle_single_byte(),
-                        0xE6 => self.cycle_inc_dec(),
-                        0xF6 => self.cycle_inc_dec(),
-                        0xEE => self.cycle_inc_dec(),
-                        0xFE => self.cycle_inc_dec(),
-                        0x4C => self.cycle_jump(),
-                        0x6C => self.cycle_jump(),
-                        0x20 => self.cycle_jump(),
-                        0x4A => self.cycle_unimplemented(),
-                        0x46 => self.cycle_unimplemented(),
-                        0x56 => self.cycle_unimplemented(),
-                        0x4E => self.cycle_unimplemented(),
-                        0x5E => self.cycle_unimplemented(),
-                        0xEA => self.cycle_single_byte(),
-                        0x09 => self.cycle_bitwise(),
-                        0x05 => self.cycle_bitwise(),
-                        0x15 => self.cycle_bitwise(),
-                        0x0D => self.cycle_bitwise(),
-                        0x1D => self.cycle_bitwise(),
-                        0x19 => self.cycle_bitwise(),
-                        0x01 => self.cycle_bitwise(),
-                        0x11 => self.cycle_bitwise(),
-                        0xAA => self.cycle_single_byte(),
-                        0x8A => self.cycle_single_byte(),
-                        0xCA => self.cycle_inc_dec(),
-                        0xE8 => self.cycle_inc_dec(),
-                        0xA8 => self.cycle_single_byte(),
-                        0x98 => self.cycle_single_byte(),
-                        0x88 => self.cycle_inc_dec(),
-                        0xC8 => self.cycle_inc_dec(),
-                        0x2A => self.cycle_unimplemented(),
-                        0x26 => self.cycle_unimplemented(),
-                        0x36 => self.cycle_unimplemented(),
-                        0x2E => self.cycle_unimplemented(),
-                        0x3E => self.cycle_unimplemented(),
-                        0x6A => self.cycle_unimplemented(),
-                        0x66 => self.cycle_unimplemented(),
-                        0x76 => self.cycle_unimplemented(),
-                        0x6E => self.cycle_unimplemented(),
-                        0x7E => self.cycle_unimplemented(),
-                        0x40 => self.cycle_unimplemented(),
-                        0x60 => self.cycle_unimplemented(),
-                        0xE9 => self.cycle_math(),
-                        0xE5 => self.cycle_math(),
-                        0xF5 => self.cycle_math(),
-                        0xED => self.cycle_math(),
-                        0xFD => self.cycle_math(),
-                        0xF9 => self.cycle_math(),
-                        0xE1 => self.cycle_math(),
-                        0xF1 => self.cycle_math(),
-                        0x85 => self.cycle_store(),
-                        0x95 => self.cycle_store(),
-                        0x8D => self.cycle_store(),
-                        0x9D => self.cycle_store(),
-                        0x99 => self.cycle_store(),
-                        0x81 => self.cycle_store(),
-                        0x91 => self.cycle_store(),
-                        0x9A => self.cycle_single_byte(),
-                        0xBA => self.cycle_single_byte(),
-                        0x48 => self.cycle_stack(),
-                        0x68 => self.cycle_stack(),
-                        0x08 => self.cycle_stack(),
-                        0x28 => self.cycle_stack(),
-                        0x86 => self.cycle_store(),
-                        0x96 => self.cycle_store(),
-                        0x8E => self.cycle_store(),
-                        0x84 => self.cycle_store(),
-                        0x94 => self.cycle_store(),
-                        0x8C => self.cycle_store(),
-                        // 0xEA => Ok(()),
-                        // 0x18 | 0x38 | 0x58 | 0x78 | 0xB8 | 0xD8 | 0xF8 | 0xAA | 0xA8 | 0xBA | 0x8A
-                        // | 0x9A | 0x98 => self.cycle_single_byte(),
-                        // 0xA0 | 0xA1 | 0xA2 | 0xA4 | 0xA5 | 0xA9 | 0xA6 | 0xAC | 0xAD | 0xAE | 0xB1
-                        // | 0xB4 | 0xB5 | 0xB6 | 0xB9 | 0xBC | 0xBD | 0xBE => self.cycle_load(),
-                        // 0x95 | 0x8D | 0x9D | 0x99 | 0x81 | 0x91 | 0x86 | 0x96 | 0x8E | 0x84 | 0x94
-                        // | 0x8C => self.cycle_store(),
-                        // 0x4C | 0x6C => self.cycle_jump(),
-                        // 0xD0 | 0xF0 => self.cycle_branch(),
-                        // 0xCA | 0x88 => self.cycle_inc_dec(),
-                        // 0xC9 => self.cycle_compare(),
-                        _ => bail!(CPUErrorKind::NotImplemented(self.current)),
-                    });
-                };
-
-                if self.t < self.current.bytes {
-                    if !self.pc_write {
-                        self.pc += 1;
-                    }
-                    if !self.addr_write {
-                        self.set_addr16(self.pc);
-                    }
-                }
-
-                match self.current.cycles {
-                    c if c - 1 == self.t => {
-                        self.t = 0;
-                        if self.pins.rw {
-                            self.set_addr16(self.pc);
-                        }
-                    }
-                    _ => self.t += 1,
-                }
-
-                result.unwrap()
-            }
-            _ => bail!(CPUErrorKind::InstructionTiming(self.current, self.t)),
         };
+
+        match self.t {
+            t if t + 1 == self.ir.cycles => {
+                self.t = 0;
+                if !self.pc_write {
+                    self.pc = self.ir_addr + self.ir.bytes as u16;
+                }
+                self.pins.set_addr16(self.pc);
+                self.pins.sync = true;
+            }
+            t if t < self.ir.bytes => {
+                self.t += 1;
+                if self.pins.rw && !self.pins.addr_changed() {
+                    self.pc += 1;
+                    self.pins.set_addr16(self.pc);
+                }
+            }
+            _ => self.t += 1,
+        }
 
         trace!(
             "end cycle {} [->t{}], pins: {}, ir: {}",
             self.cycles,
             self.t,
             self.pins,
-            self.current
+            self.ir
         );
         self.cycles += 1;
 
         result
     }
 
-    fn cycle_unimplemented(&mut self) -> CPUResult<()> {
-        bail!(CPUErrorKind::NotImplemented(self.current))
-    }
-
-    fn cycle_stack(&mut self) -> CPUResult<()> {
-        let inst = self.current;
-        let byte = self.pins.data;
-
-        match self.current.opcode {
-            // PHA
-            0x48 => match self.t {
-                1 => (),
-                2 => {
-                    self.write_data(self.s, 0x01, self.a);
-                    self.s = (Wrapping(self.s) - Wrapping(1)).0;
-                }
-                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
-            },
-            // PLA
-            0x68 => match self.t {
-                1 => (),
-                2 => {
-                    self.s = (Wrapping(self.s) + Wrapping(1)).0;
-                    self.set_addr(self.s, 0x01)
-                }
-                3 => {
-                    self.a = byte;
-                    self.flags.zero = self.a == 0;
-                    self.flags.negative = self.a & 0x80 == 0x80
-                }
-                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
-            },
-            // PHP
-            0x08 => match self.t {
-                1 => (),
-                2 => {
-                    self.write_data(self.s, 0x01, self.flags.into());
-                    self.s = (Wrapping(self.s) - Wrapping(1)).0;
-                }
-                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
-            },
-
-            // PLP
-            0x28 => match self.t {
-                1 => (),
-                2 => {
-                    self.s = (Wrapping(self.s) + Wrapping(1)).0;
-                    self.set_addr(self.s, 0x01)
-                }
-                3 => self.flags = Flags::from(byte),
-
-                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
-            },
-            _ => bail!(CPUErrorKind::InstructionExecution(self.current)),
-        }
-
+    fn read_instruction(&mut self) -> CPUResult<()> {
+        self.mdr = 0;
+        self.ir_addr = self.pins.addr;
+        self.ir = decode(self.pins.data)?;
+        debug!("decoded @ {:#04X}: {}", self.pins.addr, self.ir);
         Ok(())
     }
 
-    fn cycle_bitwise(&mut self) -> CPUResult<()> {
-        // 0x49 => instruction!(0x49, &"EOR", 2, 2, AddressMode::Immediate),
-        // 0x45 => instruction!(0x45, &"EOR", 2, 3, AddressMode::ZeroPage),
-        // 0x55 => instruction!(0x55, &"EOR", 2, 4, AddressMode::ZeroPageX),
-        // 0x4D => instruction!(0x4D, &"EOR", 3, 4, AddressMode::Absolute),
-        // 0x5D => instruction!(0x5D, &"EOR", 3, 4, AddressMode::AbsoluteX),
-        // 0x59 => instruction!(0x59, &"EOR", 3, 4, AddressMode::AbsoluteY),
-        // 0x41 => instruction!(0x41, &"EOR", 2, 6, AddressMode::IndirectX),
-        // 0x51 => instruction!(0x51, &"EOR", 2, 5, AddressMode::IndirectY),
-        // 0x09 => instruction!(0x09, &"ORA", 2, 2, AddressMode::Immediate),
-        // 0x05 => instruction!(0x05, &"ORA", 2, 3, AddressMode::ZeroPage),
-        // 0x15 => instruction!(0x15, &"ORA", 2, 4, AddressMode::ZeroPageX),
-        // 0x0D => instruction!(0x0D, &"ORA", 3, 4, AddressMode::Absolute),
-        // 0x1D => instruction!(0x1D, &"ORA", 3, 4, AddressMode::AbsoluteX),
-        // 0x19 => instruction!(0x19, &"ORA", 3, 4, AddressMode::AbsoluteY),
-        // 0x01 => instruction!(0x01, &"ORA", 2, 6, AddressMode::IndirectX),
-        // 0x11 => instruction!(0x11, &"ORA", 2, 5, AddressMode::IndirectY),
-        let inst = self.current;
-        let byte = self.pins.data;
-        match self.current.opcode {
-            // ADC #im
-            0x49 => match self.t {
-                1 => self.xor(byte),
-                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
-            },
-            _ => bail!(CPUErrorKind::InstructionExecution(self.current)),
-        }
-
-        Ok(())
-    }
-
-    fn cycle_math(&mut self) -> CPUResult<()> {
-        let inst = self.current;
-        let byte = self.pins.data;
-
-        // 0x65 => instruction!(0x65, &"ADC", 2, 3, AddressMode::ZeroPage),
-        // 0x75 => instruction!(0x75, &"ADC", 2, 4, AddressMode::ZeroPageX),
-        // 0x6D => instruction!(0x6D, &"ADC", 3, 4, AddressMode::Absolute),
-        // 0x7D => instruction!(0x7D, &"ADC", 3, 4, AddressMode::AbsoluteX),
-        // 0x79 => instruction!(0x79, &"ADC", 3, 4, AddressMode::AbsoluteY),
-        // 0x61 => instruction!(0x61, &"ADC", 2, 6, AddressMode::IndirectX),
-        // 0x71 => instruction!(0x71, &"ADC", 2, 5, AddressMode::IndirectY),
-        // 0xE9 => instruction!(0xE9, &"SBC", 2, 2, AddressMode::Immediate),
-        // 0xE5 => instruction!(0xE5, &"SBC", 2, 3, AddressMode::ZeroPage),
-        // 0xF5 => instruction!(0xF5, &"SBC", 2, 4, AddressMode::ZeroPageX),
-        // 0xED => instruction!(0xED, &"SBC", 3, 4, AddressMode::Absolute),
-        // 0xFD => instruction!(0xFD, &"SBC", 3, 4, AddressMode::AbsoluteX),
-        // 0xF9 => instruction!(0xF9, &"SBC", 3, 4, AddressMode::AbsoluteY),
-        // 0xE1 => instruction!(0xE1, &"SBC", 2, 6, AddressMode::IndirectX),
-        // 0xF1 => instruction!(0xF1, &"SBC", 2, 4, AddressMode::IndirectY),
-
-        match self.current.opcode {
-            // ADC #im
-            0x69 => match self.t {
-                1 => self.add_a_carry(byte),
-                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
-            },
-            _ => bail!(CPUErrorKind::InstructionExecution(self.current)),
-        }
-
-        Ok(())
-    }
-
-    fn cycle_branch(&mut self) -> CPUResult<()> {
-        let inst = self.current;
-        // 0x50 => instruction!(0x50, &"BVC", 2, 2, AddressMode::Relative),
-        // 0x70 => instruction!(0x70, &"BVS", 2, 2, AddressMode::Relative),
-        // 0xB0 => instruction!(0xB0, &"BCS", 2, 2, AddressMode::Relative),
-
+    fn update_instruction(&mut self) {
         match self.t {
-            1 => match inst.opcode {
-                // BNE
-                0xD0 => {
-                    if self.flags.zero {
-                        self.current.cycles = 2
-                    }
-                }
-                // BEQ
-                0xF0 => {
-                    if !self.flags.zero {
-                        self.current.cycles = 2
-                    }
-                }
-                // BPL
-                0x10 => {
-                    if self.flags.negative {
-                        self.current.cycles = 2
-                    }
-                }
-                // BCC
-                0x90 => {
-                    if self.flags.carry {
-                        self.current.cycles = 2
-                    }
-                }
-                // BMI
-                0x30 => {
-                    if !self.flags.negative {
-                        self.current.cycles = 2
-                    }
-                }
-                // BCS
-                0xB0 => {
-                    if !self.flags.carry {
-                        self.current.cycles = 2
-                    }
-                }
-                // BVC
-                0x50 => {
-                    if self.flags.overflow {
-                        self.current.cycles = 2
-                    }
-                }
-                // BVS
-                0x70 => {
-                    if !self.flags.overflow {
-                        self.current.cycles = 2
-                    }
-                }
-                _ => bail!(CPUErrorKind::InstructionExecution(inst)),
-            },
-            2 => {
-                let pc_low = (self.pc & 0xFF) as i32;
-                let offset = self.current.arg1 as i8 as i32;
-                let relative = pc_low + offset;
-
-                if relative > 0 && relative < 0xFF {
-                    let addr = ((self.pc as i32) + offset) as u16;
-                    self.set_pc16(addr);
-                    self.current.cycles = 3;
-                }
+            1 if self.ir.bytes > 1 => {
+                self.ir.low = self.pins.data;
             }
-            3 => {
-                let offset = self.current.arg1 as i8 as i32;
-                let addr = ((self.pc as i32) + offset) as u16;
-                self.set_pc16(addr);
+            2 if self.ir.bytes > 2 => {
+                self.ir.high = self.pins.data;
             }
-            _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            _ => (),
         }
-
-        Ok(())
     }
 
-    fn cycle_jump(&mut self) -> CPUResult<()> {
-        let inst = self.current;
-        // 0x4C => instruction!(0x4C, &"JMP", 3, 3, AddressMode::Absolute),
-        // 0x6C => instruction!(0x6C, &"JMP", 3, 5, AddressMode::Indirect),
-
-        match self.current.opcode {
-            // STA $abs
-            0x4C => match self.t {
-                1 => (),
-                2 => self.set_pc(inst.arg1, inst.arg2),
-                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
-            },
-            _ => bail!(CPUErrorKind::InstructionExecution(inst)),
+    fn dispatch(&mut self, opcode: u8) -> CPUResult<()> {
+        match opcode {
+            0x69 /* ADC #imm     */ => self.cycle_memop(CPU::add_with_carry),
+            0x65 /* ADC $zp      */ => self.cycle_memop(CPU::add_with_carry),
+            0x75 /* ADC $zp,x    */ => self.cycle_memop(CPU::add_with_carry),
+            0x6D /* ADC $abs     */ => self.cycle_memop(CPU::add_with_carry),
+            0x7D /* ADC $abs,x   */ => self.cycle_memop(CPU::add_with_carry),
+            0x79 /* ADC $abs,y   */ => self.cycle_memop(CPU::add_with_carry),
+            0x61 /* ADC $(ind,x) */ => self.cycle_memop(CPU::add_with_carry),
+            0x71 /* ADC $(ind),y */ => self.cycle_memop(CPU::add_with_carry),
+            0x29 /* AND #imm     */ => self.cycle_unimplemented(CPU::nop),
+            0x25 /* AND $zp      */ => self.cycle_unimplemented(CPU::nop),
+            0x35 /* AND $zp,x    */ => self.cycle_unimplemented(CPU::nop),
+            0x2D /* AND $abs     */ => self.cycle_unimplemented(CPU::nop),
+            0x3D /* AND $abs,x   */ => self.cycle_unimplemented(CPU::nop),
+            0x39 /* AND $abs,y   */ => self.cycle_unimplemented(CPU::nop),
+            0x21 /* AND $(ind,x) */ => self.cycle_unimplemented(CPU::nop),
+            0x31 /* AND $(ind),y */ => self.cycle_unimplemented(CPU::nop),
+            0x0A /* ASL A        */ => self.cycle_unimplemented(CPU::nop),
+            0x06 /* ASL $zp      */ => self.cycle_unimplemented(CPU::nop),
+            0x16 /* ASL $zp,x    */ => self.cycle_unimplemented(CPU::nop),
+            0x0E /* ASL $abs     */ => self.cycle_unimplemented(CPU::nop),
+            0x1E /* ASL $abs,x   */ => self.cycle_unimplemented(CPU::nop),
+            0x24 /* BIT $zp,x    */ => self.cycle_unimplemented(CPU::nop),
+            0x2C /* BIT $abs     */ => self.cycle_unimplemented(CPU::nop),
+            0x10 /* BPL $rel     */ => self.cycle_branch(CPU::branch_not_negative),
+            0x30 /* BMI $rel     */ => self.cycle_branch(CPU::branch_negative),
+            0x50 /* BVC $rel     */ => self.cycle_branch(CPU::branch_not_overflow),
+            0x70 /* BVS $rel     */ => self.cycle_branch(CPU::branch_overflow),
+            0x90 /* BCC $rel     */ => self.cycle_branch(CPU::branch_not_carry),
+            0xB0 /* BCS $rel     */ => self.cycle_branch(CPU::branch_carry),
+            0xD0 /* BNE $rel     */ => self.cycle_branch(CPU::branch_not_zero),
+            0xF0 /* BEQ $rel     */ => self.cycle_branch(CPU::branch_zero),
+            0x00 /* BRK #imm     */ => self.cycle_unimplemented(CPU::nop),
+            0xC9 /* CMP #imm     */ => self.cycle_memop(CPU::compare_a),
+            0xC5 /* CMP $zp      */ => self.cycle_memop(CPU::compare_a),
+            0xD5 /* CMP $zp,x    */ => self.cycle_memop(CPU::compare_a),
+            0xCD /* CMP $abs     */ => self.cycle_memop(CPU::compare_a),
+            0xDD /* CMP $abs,x   */ => self.cycle_memop(CPU::compare_a),
+            0xD9 /* CMP $abs,y   */ => self.cycle_memop(CPU::compare_a),
+            0xC1 /* CMP $(ind,x) */ => self.cycle_memop(CPU::compare_a),
+            0xD1 /* CMP $(ind),y */ => self.cycle_memop(CPU::compare_a),
+            0xE0 /* CPX #imm     */ => self.cycle_memop(CPU::compare_x),
+            0xE4 /* CPX $zp      */ => self.cycle_memop(CPU::compare_x),
+            0xEC /* CPX $abs     */ => self.cycle_memop(CPU::compare_x),
+            0xC0 /* CPY #imm     */ => self.cycle_memop(CPU::compare_y),
+            0xC4 /* CPY $zp      */ => self.cycle_memop(CPU::compare_y),
+            0xCC /* CPY $abs     */ => self.cycle_memop(CPU::compare_y),
+            0xC6 /* DEC $zp      */ => self.cycle_rmw(CPU::dec),
+            0xD6 /* DEC $zp,x    */ => self.cycle_rmw(CPU::dec),
+            0xCE /* DEC $abs     */ => self.cycle_rmw(CPU::dec),
+            0xDE /* DEC $abs,x   */ => self.cycle_rmw(CPU::dec),
+            0x49 /* EOR #imm     */ => self.cycle_memop(CPU::xor),
+            0x45 /* EOR $zp      */ => self.cycle_memop(CPU::xor),
+            0x55 /* EOR $zp,x    */ => self.cycle_memop(CPU::xor),
+            0x4D /* EOR $abs     */ => self.cycle_memop(CPU::xor),
+            0x5D /* EOR $abs,x   */ => self.cycle_memop(CPU::xor),
+            0x59 /* EOR $abs,y   */ => self.cycle_memop(CPU::xor),
+            0x41 /* EOR $(ind,x) */ => self.cycle_memop(CPU::xor),
+            0x51 /* EOR $(ind),y */ => self.cycle_memop(CPU::xor),
+            0x18 /* CLC          */ => self.cycle_implied(CPU::clear_carry),
+            0x38 /* SEC          */ => self.cycle_implied(CPU::set_carry),
+            0x58 /* CLI          */ => self.cycle_implied(CPU::clear_irq_disable),
+            0x78 /* SEI          */ => self.cycle_implied(CPU::set_irq_disable),
+            0xB8 /* CLV          */ => self.cycle_implied(CPU::clear_negative),
+            0xD8 /* CLD          */ => self.cycle_implied(CPU::clear_decimal),
+            0xF8 /* SED          */ => self.cycle_implied(CPU::set_decimal),
+            0xE6 /* INC $zp      */ => self.cycle_rmw(CPU::inc),
+            0xF6 /* INC $zp,x    */ => self.cycle_rmw(CPU::inc),
+            0xEE /* INC $abs     */ => self.cycle_rmw(CPU::inc),
+            0xFE /* INC $abs,x   */ => self.cycle_rmw(CPU::inc),
+            0x4C /* JMP $abs     */ => self.cycle_jump(),
+            0x6C /* JMP $(ind)   */ => self.cycle_jump(),
+            0x20 /* JSR $abs     */ => self.cycle_jsr(),
+            0xA9 /* LDA #imm     */ => self.cycle_memop(CPU::set_a),
+            0xA5 /* LDA $zp      */ => self.cycle_memop(CPU::set_a),
+            0xB5 /* LDA $zp,x    */ => self.cycle_memop(CPU::set_a),
+            0xAD /* LDA $abs     */ => self.cycle_memop(CPU::set_a),
+            0xBD /* LDA $abs,x   */ => self.cycle_memop(CPU::set_a),
+            0xB9 /* LDA $abs,y   */ => self.cycle_memop(CPU::set_a),
+            0xA1 /* LDA $(ind,x) */ => self.cycle_memop(CPU::set_a),
+            0xB1 /* LDA $(ind),y */ => self.cycle_memop(CPU::set_a),
+            0xA2 /* LDX #imm     */ => self.cycle_memop(CPU::set_x),
+            0xA6 /* LDX $zp      */ => self.cycle_memop(CPU::set_x),
+            0xB6 /* LDX $zp y    */ => self.cycle_memop(CPU::set_x),
+            0xAE /* LDX $abs     */ => self.cycle_memop(CPU::set_x),
+            0xBE /* LDX $abs,y   */ => self.cycle_memop(CPU::set_x),
+            0xA0 /* LDY #imm     */ => self.cycle_memop(CPU::set_y),
+            0xA4 /* LDY $zp      */ => self.cycle_memop(CPU::set_y),
+            0xB4 /* LDY $zp,x    */ => self.cycle_memop(CPU::set_y),
+            0xAC /* LDY $abs     */ => self.cycle_memop(CPU::set_y),
+            0xBC /* LDY $abs,y   */ => self.cycle_memop(CPU::set_y),
+            0x4A /* LSR A        */ => self.cycle_unimplemented(CPU::nop),
+            0x46 /* LSR $zp      */ => self.cycle_unimplemented(CPU::nop),
+            0x56 /* LSR $zp,x    */ => self.cycle_unimplemented(CPU::nop),
+            0x4E /* LSR $abs     */ => self.cycle_unimplemented(CPU::nop),
+            0x5E /* LSR $abs,x   */ => self.cycle_unimplemented(CPU::nop),
+            0xEA /* NOP          */ => self.cycle_implied(CPU::nop),
+            0x09 /* ORA #imm     */ => self.cycle_unimplemented(CPU::nop),
+            0x05 /* ORA $zp      */ => self.cycle_unimplemented(CPU::nop),
+            0x15 /* ORA $zp,x    */ => self.cycle_unimplemented(CPU::nop),
+            0x0D /* ORA $abs     */ => self.cycle_unimplemented(CPU::nop),
+            0x1D /* ORA $abs,x   */ => self.cycle_unimplemented(CPU::nop),
+            0x19 /* ORA $abs,y   */ => self.cycle_unimplemented(CPU::nop),
+            0x01 /* ORA $(ind,x) */ => self.cycle_unimplemented(CPU::nop),
+            0x11 /* ORA $(ind),y */ => self.cycle_unimplemented(CPU::nop),
+            0xAA /* TAX          */ => self.cycle_implied(CPU::transfer_ax),
+            0x8A /* TXA          */ => self.cycle_implied(CPU::transfer_xa),
+            0xCA /* DEX          */ => self.cycle_implied(CPU::dec_x),
+            0xE8 /* INX          */ => self.cycle_implied(CPU::inc_x),
+            0xA8 /* TAY          */ => self.cycle_implied(CPU::transfer_ay),
+            0x98 /* TYA          */ => self.cycle_implied(CPU::transfer_ya),
+            0x88 /* DEY          */ => self.cycle_implied(CPU::dec_y),
+            0xC8 /* INY          */ => self.cycle_implied(CPU::inc_y),
+            0x2A /* ROL A        */ => self.cycle_rmw(CPU::rotate_left),
+            0x26 /* ROL $zp      */ => self.cycle_rmw(CPU::rotate_left),
+            0x36 /* ROL $zp,x    */ => self.cycle_rmw(CPU::rotate_left),
+            0x2E /* ROL $abs     */ => self.cycle_rmw(CPU::rotate_left),
+            0x3E /* ROL $abs,x   */ => self.cycle_rmw(CPU::rotate_left),
+            0x6A /* ROR A        */ => self.cycle_rmw(CPU::rotate_right),
+            0x66 /* ROR $zp      */ => self.cycle_rmw(CPU::rotate_right),
+            0x76 /* ROR $zp,x    */ => self.cycle_rmw(CPU::rotate_right),
+            0x6E /* ROR $abs     */ => self.cycle_rmw(CPU::rotate_right),
+            0x7E /* ROR $abs,x   */ => self.cycle_rmw(CPU::rotate_right),
+            0x40 /* RTI          */ => self.cycle_unimplemented(CPU::nop),
+            0x60 /* RTS          */ => self.cycle_unimplemented(CPU::nop),
+            0xE9 /* SBC #imm     */ => self.cycle_unimplemented(CPU::nop),
+            0xE5 /* SBC $zp      */ => self.cycle_unimplemented(CPU::nop),
+            0xF5 /* SBC $zp,x    */ => self.cycle_unimplemented(CPU::nop),
+            0xED /* SBC $abs     */ => self.cycle_unimplemented(CPU::nop),
+            0xFD /* SBC $abs,x   */ => self.cycle_unimplemented(CPU::nop),
+            0xF9 /* SBC $abs,y   */ => self.cycle_unimplemented(CPU::nop),
+            0xE1 /* SBC $(ind,x) */ => self.cycle_unimplemented(CPU::nop),
+            0xF1 /* SBC $(ind),y */ => self.cycle_unimplemented(CPU::nop),
+            0x85 /* STA $zp      */ => self.cycle_store(CPU::get_a),
+            0x95 /* STA $zp,x    */ => self.cycle_store(CPU::get_a),
+            0x8D /* STA $abs     */ => self.cycle_store(CPU::get_a),
+            0x9D /* STA $abs,x   */ => self.cycle_store(CPU::get_a),
+            0x99 /* STA $abs,y   */ => self.cycle_store(CPU::get_a),
+            0x81 /* STA $(ind,x) */ => self.cycle_store(CPU::get_a),
+            0x91 /* STA $(ind),y */ => self.cycle_store(CPU::get_a),
+            0x9A /* TXS          */ => self.cycle_implied(CPU::transfer_xs),
+            0xBA /* TSX          */ => self.cycle_implied(CPU::transfer_sx),
+            0x48 /* PHA          */ => self.cycle_stack_push(CPU::get_a),
+            0x68 /* PLA          */ => self.cycle_stack_pull(CPU::set_a),
+            0x08 /* PHP          */ => self.cycle_stack_push(CPU::get_flags),
+            0x28 /* PLP          */ => self.cycle_stack_pull(CPU::set_flags),
+            0x86 /* STX $zp      */ => self.cycle_store(CPU::get_x),
+            0x96 /* STX $zp,y    */ => self.cycle_store(CPU::get_x),
+            0x8E /* STX $abs     */ => self.cycle_store(CPU::get_x),
+            0x84 /* STY $zp      */ => self.cycle_store(CPU::get_y),
+            0x94 /* STY $zp,x    */ => self.cycle_store(CPU::get_y),
+            0x8C /* STY $abs     */ => self.cycle_store(CPU::get_y),
+            _ => bail!(CPUErrorKind::NotImplemented(self.ir)),
         }
-
-        Ok(())
     }
 
-    fn cycle_single_byte(&mut self) -> CPUResult<()> {
-        let op = self.current.opcode;
-
+    fn cycle_implied(&mut self, action: fn(&mut CPU)) -> CPUResult<()> {
         match self.t {
-            1 => {
-                match op {
-                    0xEA => (),                             // NOP
-                    0x18 => self.flags.carry = false,       // CLC
-                    0x38 => self.flags.carry = true,        // SEC
-                    0x58 => self.flags.irq_disable = false, // CLI
-                    0x78 => self.flags.irq_disable = true,  // SEI
-                    0xB8 => self.flags.negative = false,    // CLV
-                    0xD8 => self.flags.decimal = false,     // CLD
-                    0xF8 => self.flags.decimal = true,      // SED
-                    // TAX
-                    0xAA => {
-                        self.set_x(self.a);
-                        self.flags.zero = self.x == 0;
-                        self.flags.negative = self.x & 0x80 == 0x80
-                    }
-                    // TAY
-                    0xA8 => {
-                        self.set_y(self.a);
-                        self.flags.zero = self.y == 0;
-                        self.flags.negative = self.y & 0x80 == 0x80
-                    }
-                    // TSX
-                    0xBA => {
-                        self.set_x(self.s);
-                        self.flags.zero = self.x == 0;
-                        self.flags.negative = self.x & 0x80 == 0x80
-                    }
-                    // TXA
-                    0x8A => {
-                        self.set_a(self.x);
-                        self.flags.zero = self.a == 0;
-                        self.flags.negative = self.a & 0x80 == 0x80
-                    }
-                    // TXS
-                    0x9A => self.set_s(self.x),
-                    // TYA
-                    0x98 => {
-                        self.set_a(self.y);
-                        self.flags.zero = self.a == 0;
-                        self.flags.negative = self.a & 0x80 == 0x80
-                    }
-                    _ => bail!(CPUErrorKind::InstructionExecution(self.current)),
-                }
-            }
-            _ => bail!(CPUErrorKind::InstructionTiming(self.current, self.t)),
-        }
-
-        Ok(())
-    }
-
-    fn cycle_inc_dec(&mut self) -> CPUResult<()> {
-        match self.t {
-            1 => match self.current.opcode {
-                // DEX
-                0xCA => {
-                    self.x = match self.x {
-                        0 => 0xFF,
-                        _ => self.x - 1,
-                    };
-                    self.flags.zero = self.x == 0;
-                    self.flags.negative = self.x & 0x80 == 0x80;
-                }
-                // DEY
-                0x88 => {
-                    self.y = match self.y {
-                        0 => 0xFF,
-                        _ => self.y - 1,
-                    };
-                    self.flags.zero = self.y == 0;
-                    self.flags.negative = self.y & 0x80 == 0x80;
-                }
-                _ => bail!(CPUErrorKind::InstructionExecution(self.current)),
-            },
-            _ => bail!(CPUErrorKind::InstructionTiming(self.current, self.t)),
-        }
-
-        Ok(())
-    }
-
-    fn cycle_store(&mut self) -> CPUResult<()> {
-        let inst = self.current;
-        // 0x85 => instruction!(byte, &"STA", 2, 3, ZeroPage),
-        // 0x95 => instruction!(byte, &"STA", 2, 4, ZeroPageX),
-        // 0x8D => instruction!(byte, &"STA", 3, 4, Absolute),
-        // 0x9D => instruction!(byte, &"STA", 3, 5, AbsoluteX),
-        // 0x99 => instruction!(byte, &"STA", 3, 5, AbsoluteY),
-        // 0x81 => instruction!(byte, &"STA", 2, 6, IndirectX),
-        // 0x91 => instruction!(byte, &"STA", 2, 6, IndirectY),
-        // 0x86 => instruction!(byte, &"STX", 2, 3, ZeroPage),
-        // 0x96 => instruction!(byte, &"STX", 2, 4, ZeroPageX),
-        // 0x8E => instruction!(byte, &"STX", 3, 4, Absolute),
-        // 0x84 => instruction!(byte, &"STY", 2, 3, ZeroPage),
-        // 0x94 => instruction!(byte, &"STY", 2, 4, ZeroPageX),
-        // 0x8C => instruction!(byte, &"STY", 3, 4, Absolute),
-        match self.current.opcode {
-            // STA $abs
-            0x8D => match self.t {
-                1 => (),
-                2 => (),
-                3 => self.write_data(inst.arg1, inst.arg2, self.a),
-                _ => bail!(CPUErrorKind::InstructionTiming(self.current, self.t)),
-            },
-            _ => bail!(CPUErrorKind::InstructionExecution(self.current)),
+            1 => action(self),
+            _ => bail!(CPUErrorKind::InstructionTiming(self.ir, self.t)),
         }
 
         Ok(())
     }
 
     fn cycle_memop(&mut self, action: fn(&mut CPU, u8)) -> CPUResult<()> {
-        /*
-        0x65 => instruction!(0x65, &"ADC", 2, 3, AddressMode::ZeroPage),
-        0x75 => instruction!(0x75, &"ADC", 2, 4, AddressMode::ZeroPageX),
-        0x6D => instruction!(0x6D, &"ADC", 3, 4, AddressMode::Absolute),
-        0x7D => instruction!(0x7D, &"ADC", 3, 4, AddressMode::AbsoluteX),
-        0x79 => instruction!(0x79, &"ADC", 3, 4, AddressMode::AbsoluteY),
-        0x61 => instruction!(0x61, &"ADC", 2, 6, AddressMode::IndirectX),
-        0x71 => instruction!(0x71, &"ADC", 2, 5, AddressMode::IndirectY),
-        0x29 => instruction!(0x29, &"AND", 2, 2, AddressMode::Immediate),
-        0x25 => instruction!(0x25, &"AND", 2, 3, AddressMode::ZeroPage),
-        0x35 => instruction!(0x35, &"AND", 2, 4, AddressMode::ZeroPageX),
-        0x2D => instruction!(0x2D, &"AND", 3, 4, AddressMode::Absolute),
-        0x3D => instruction!(0x3D, &"AND", 3, 4, AddressMode::AbsoluteX),
-        0x39 => instruction!(0x39, &"AND", 3, 4, AddressMode::AbsoluteY),
-        0x21 => instruction!(0x21, &"AND", 2, 6, AddressMode::IndirectX),
-        0x31 => instruction!(0x31, &"AND", 2, 5, AddressMode::IndirectY),
-        0x24 => instruction!(0x24, &"BIT", 2, 3, AddressMode::ZeroPageX),
-        0x2C => instruction!(0x2C, &"BIT", 3, 4, AddressMode::Absolute),
-        0xC9 => instruction!(0xC9, &"CMP", 2, 2, AddressMode::Immediate),
-        0xC5 => instruction!(0xC5, &"CMP", 2, 3, AddressMode::ZeroPage),
-        0xD5 => instruction!(0xD5, &"CMP", 2, 4, AddressMode::ZeroPageX),
-        0xCD => instruction!(0xCD, &"CMP", 3, 4, AddressMode::Absolute),
-        0xDD => instruction!(0xDD, &"CMP", 3, 4, AddressMode::AbsoluteX),
-        0xD9 => instruction!(0xD9, &"CMP", 3, 4, AddressMode::AbsoluteY),
-        0xC1 => instruction!(0xC1, &"CMP", 2, 6, AddressMode::IndirectX),
-        0xD1 => instruction!(0xD1, &"CMP", 2, 5, AddressMode::IndirectY),
-        0xE0 => instruction!(0xE0, &"CPX", 2, 2, AddressMode::Immediate),
-        0xE4 => instruction!(0xE4, &"CPX", 2, 3, AddressMode::ZeroPage),
-        0xEC => instruction!(0xEC, &"CPX", 3, 4, AddressMode::Absolute),
-        0xC0 => instruction!(0xC0, &"CPY", 2, 2, AddressMode::Immediate),
-        0xC4 => instruction!(0xC4, &"CPY", 2, 3, AddressMode::ZeroPage),
-        0xCC => instruction!(0xCC, &"CPY", 3, 4, AddressMode::Absolute),
-        0x49 => instruction!(0x49, &"EOR", 2, 2, AddressMode::Immediate),
-        0x45 => instruction!(0x45, &"EOR", 2, 3, AddressMode::ZeroPage),
-        0x55 => instruction!(0x55, &"EOR", 2, 4, AddressMode::ZeroPageX),
-        0x4D => instruction!(0x4D, &"EOR", 3, 4, AddressMode::Absolute),
-        0x5D => instruction!(0x5D, &"EOR", 3, 4, AddressMode::AbsoluteX),
-        0x59 => instruction!(0x59, &"EOR", 3, 4, AddressMode::AbsoluteY),
-        0x41 => instruction!(0x41, &"EOR", 2, 6, AddressMode::IndirectX),
-        0x51 => instruction!(0x51, &"EOR", 2, 5, AddressMode::IndirectY),
-        0xA9 => instruction!(0xA9, &"LDA", 2, 2, AddressMode::Immediate),
-        0xA5 => instruction!(0xA5, &"LDA", 2, 3, AddressMode::ZeroPage),
-        0xB5 => instruction!(0xB5, &"LDA", 2, 4, AddressMode::ZeroPageX),
-        0xAD => instruction!(0xAD, &"LDA", 3, 4, AddressMode::Absolute),
-        0xBD => instruction!(0xBD, &"LDA", 3, 4, AddressMode::AbsoluteX),
-        0xB9 => instruction!(0xB9, &"LDA", 3, 4, AddressMode::AbsoluteY),
-        0xA1 => instruction!(0xA1, &"LDA", 2, 6, AddressMode::IndirectX),
-        0xB1 => instruction!(0xB1, &"LDA", 2, 5, AddressMode::IndirectY),
-        0xA2 => instruction!(0xA2, &"LDX", 2, 2, AddressMode::Immediate),
-        0xA6 => instruction!(0xA6, &"LDX", 2, 3, AddressMode::ZeroPage),
-        0xB6 => instruction!(0xB6, &"LDX", 2, 4, AddressMode::ZeroPageY),
-        0xAE => instruction!(0xAE, &"LDX", 3, 4, AddressMode::Absolute),
-        0xBE => instruction!(0xBE, &"LDX", 3, 4, AddressMode::AbsoluteY),
-        0xA0 => instruction!(0xA0, &"LDY", 2, 2, AddressMode::Immediate),
-        0xA4 => instruction!(0xA4, &"LDY", 2, 3, AddressMode::ZeroPage),
-        0xB4 => instruction!(0xB4, &"LDY", 2, 4, AddressMode::ZeroPageY),
-        0xAC => instruction!(0xAC, &"LDY", 3, 4, AddressMode::Absolute),
-        0xBC => instruction!(0xBC, &"LDY", 3, 4, AddressMode::AbsoluteY),
-        0x09 => instruction!(0x09, &"ORA", 2, 2, AddressMode::Immediate),
-        0x05 => instruction!(0x05, &"ORA", 2, 3, AddressMode::ZeroPage),
-        0x15 => instruction!(0x15, &"ORA", 2, 4, AddressMode::ZeroPageX),
-        0x0D => instruction!(0x0D, &"ORA", 3, 4, AddressMode::Absolute),
-        0x1D => instruction!(0x1D, &"ORA", 3, 4, AddressMode::AbsoluteX),
-        0x19 => instruction!(0x19, &"ORA", 3, 4, AddressMode::AbsoluteY),
-        0x01 => instruction!(0x01, &"ORA", 2, 6, AddressMode::IndirectX),
-        0x11 => instruction!(0x11, &"ORA", 2, 5, AddressMode::IndirectY),
-        0xE9 => instruction!(0xE9, &"SBC", 2, 2, AddressMode::Immediate),
-        0xE5 => instruction!(0xE5, &"SBC", 2, 3, AddressMode::ZeroPage),
-        0xF5 => instruction!(0xF5, &"SBC", 2, 4, AddressMode::ZeroPageX),
-        0xED => instruction!(0xED, &"SBC", 3, 4, AddressMode::Absolute),
-        0xFD => instruction!(0xFD, &"SBC", 3, 4, AddressMode::AbsoluteX),
-        0xF9 => instruction!(0xF9, &"SBC", 3, 4, AddressMode::AbsoluteY),
-        0xE1 => instruction!(0xE1, &"SBC", 2, 6, AddressMode::IndirectX),
-        0xF1 => instruction!(0xF1, &"SBC", 2, 4, AddressMode::IndirectY),
-        */
-
-        let data = self.pins.data;
-        let addr = self.pins.addr;
-        let inst = self.current;
+        let inst = self.ir;
+        let pins = &mut self.pins;
+        let data_in = pins.data;
+        let t = self.t;
 
         match inst.mode {
-            AddressMode::Immediate => match self.t {
-                1 => action(self, data),
-                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            AddressMode::Immediate => match t {
+                1 => action(self, inst.low),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, t)),
             },
-            AddressMode::ZeroPage => match self.t {
-                1 => self.set_addr8(data),
-                2 => action(self, data),
-                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            AddressMode::ZeroPage => match t {
+                1 => pins.set_addr8(inst.low),
+                2 => action(self, data_in),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, t)),
             },
-            AddressMode::Absolute => match self.t {
-                1 => self.addr_buf[0] = data,
-                2 => self.set_addr(self.addr_buf[0], data),
-                3 => action(self, data),
-                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            AddressMode::Absolute => match t {
+                1 => (),
+                2 => self.pins.set_addr(inst.low, inst.high),
+                3 => action(self, data_in),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, t)),
             },
-            AddressMode::ZeroPageX => match self.t {
-                1 => self.set_addr8(data),
-                2 => self.set_addr8((Wrapping(addr as u8) + Wrapping(self.x)).0),
-                3 => action(self, data),
-                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            AddressMode::ZeroPageX => match t {
+                1 => pins.set_addr8(inst.low),
+                2 => pins.set_addr8(wrap_add!(inst.low, self.x)),
+                3 => action(self, data_in),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, t)),
             },
-            AddressMode::ZeroPageY => match self.t {
-                1 => self.set_addr8(data),
-                2 => self.set_addr8((Wrapping(addr as u8) + Wrapping(self.y)).0),
-                3 => action(self, data),
-                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            AddressMode::ZeroPageY => match t {
+                1 => pins.set_addr8(inst.low),
+                2 => pins.set_addr8(wrap_add!(inst.low, self.y)),
+                3 => action(self, data_in),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, t)),
             },
-            AddressMode::IndirectX => match self.t {
-                1 => self.set_addr8(data),
-                2 => self.set_addr16(addr + self.x as u16),
+            AddressMode::IndirectX => match t {
+                1 => pins.set_addr8(inst.low),
+                2 => pins.set_addr8(wrap_add!(inst.low, self.x)),
                 3 => {
-                    self.set_addr16(addr + 1);
-                    self.addr_buf[0] = data;
+                    self.mdr = data_in;
+                    self.pins.inc_addr();
                 }
-                4 => self.set_addr(self.addr_buf[0], data),
-                5 => action(self, data),
-                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+                4 => self.pins.set_addr(self.mdr, data_in),
+                5 => action(self, data_in),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, t)),
             },
-            AddressMode::IndirectY => match self.t {
-                1 => self.set_addr8(data),
+            AddressMode::IndirectY => match t {
+                1 => pins.set_addr8(inst.low),
                 2 => {
-                    self.addr_buf[0] = data;
-                    self.set_addr16(addr + 1);
+                    self.mdr = data_in;
+                    self.pins.inc_addr();
                 }
                 3 => {
-                    let low = (Wrapping(self.addr_buf[0]) + Wrapping(self.y)).0;
-                    let carry = low < self.y;
-                    let high = data + (carry as u8);
-                    self.set_addr(low, high);
-
-                    if !carry {
-                        self.current.cycles -= 1;
-                    }
+                    let carry = self.pins.set_addr_offset_nocarry(self.mdr, data_in, self.y);
+                    self.ir.cycles -= !carry as u8;
                 }
-                4 => {
-                    if inst.cycles == 5 {
-                        action(self, data);
-                    }
-                }
-                5 => action(self, data),
-                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+                4 => match inst.cycles {
+                    5 => action(self, data_in),
+                    _ => self.pins.inc_addr_page(),
+                },
+                5 => action(self, data_in),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, t)),
             },
-            AddressMode::AbsoluteX => match self.t {
-                1 => self.addr_buf[0] = data,
+            AddressMode::AbsoluteX => match t {
+                1 => (),
                 2 => {
-                    let low = (Wrapping(self.addr_buf[0]) + Wrapping(self.x)).0;
-                    let carry = low < self.x;
-                    let high = data + (carry as u8);
-                    self.set_addr(low, high);
-
-                    if !carry {
-                        self.current.cycles -= 1;
-                    }
+                    let carry = self
+                        .pins
+                        .set_addr_offset_nocarry(inst.low, inst.high, self.x);
+                    self.ir.cycles -= !carry as u8;
                 }
-                3 => {
-                    if inst.cycles == 4 {
-                        action(self, data);
-                    }
-                }
-                4 => action(self, data),
-                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+                3 => match inst.cycles {
+                    4 => action(self, data_in),
+                    _ => self.pins.inc_addr_page(),
+                },
+                4 => action(self, data_in),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, t)),
             },
-            AddressMode::AbsoluteY => match self.t {
-                1 => self.addr_buf[0] = data,
+            AddressMode::AbsoluteY => match t {
+                1 => (),
                 2 => {
-                    let low = (Wrapping(self.addr_buf[0]) + Wrapping(self.y)).0;
-                    let carry = low < self.y;
-                    let high = data + (carry as u8);
-                    self.set_addr(low, high);
-
-                    if !carry {
-                        self.current.cycles -= 1;
-                    }
+                    let carry = self
+                        .pins
+                        .set_addr_offset_nocarry(inst.low, inst.high, self.y);
+                    self.ir.cycles -= !carry as u8;
                 }
-                3 => {
-                    if inst.cycles == 4 {
-                        action(self, data);
-                    }
-                }
-                4 => action(self, data),
-                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+                3 => match inst.cycles {
+                    4 => action(self, data_in),
+                    _ => self.pins.inc_addr_page(),
+                },
+                4 => action(self, data_in),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, t)),
             },
-            _ => bail!(CPUErrorKind::InstructionExecution(self.current)),
+            _ => bail!(CPUErrorKind::InstructionExecution(self.ir)),
         }
         Ok(())
     }
 
-    fn xor(&mut self, byte: u8) {
-        self.a = self.a ^ byte;
-        self.flags.zero = self.a == 0;
-        self.flags.negative = self.a & 0x80 == 0x80;
+    fn cycle_branch(&mut self, branch: fn(&mut CPU) -> bool) -> CPUResult<()> {
+        let inst = self.ir;
+
+        match self.t {
+            1 => {
+                if !branch(self) {
+                    self.ir.cycles = 2
+                }
+            }
+            2 => {
+                let (addr, carry) = self.get_relative(self.pc, inst.low);
+                self.set_pc16(addr);
+                self.ir.cycles -= !carry as u8;
+            }
+            3 => match self.ir.low {
+                l if l & 0x80 == 0x80 => self.set_pc16(self.pc - 0x100),
+                _ => self.set_pc16(self.pc + 0x100),
+            },
+            _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+        }
+
+        Ok(())
     }
 
-    fn add_a_carry(&mut self, byte: u8) {
-        let sum = self.a as u16 + byte as u16 + self.flags.carry as u16;
-        self.flags.carry = sum > 0xFF;
-        let sum = sum as u8;
-        self.flags.zero = sum == 0;
-        self.flags.overflow = (!(self.a ^ byte) & (self.a ^ sum) & 0x80) != 0;
-        self.flags.negative = sum & 0x80 == 0x80;
-        self.a = sum;
+    fn cycle_stack_push(&mut self, action: fn(&CPU) -> u8) -> CPUResult<()> {
+        match self.t {
+            1 => {
+                let data = action(self);
+                self.pins.set_addr(self.s, CPU::STACK_PAGE);
+                self.pins.set_data(data);
+                self.s = self.s.wrapping_sub(1); // (Wrapping(self.s) - Wrapping(1)).0;
+            }
+            2 => (),
+            _ => bail!(CPUErrorKind::InstructionTiming(self.ir, self.t)),
+        }
+        Ok(())
     }
+
+    fn cycle_stack_pull(&mut self, action: fn(&mut CPU, u8)) -> CPUResult<()> {
+        let data = self.pins.data;
+
+        match self.t {
+            1 => (),
+            2 => {
+                self.s = self.s.wrapping_add(1); // (Wrapping(self.s) + Wrapping(1)).0;
+                self.pins.set_addr(self.s, CPU::STACK_PAGE)
+            }
+            3 => action(self, data),
+            _ => bail!(CPUErrorKind::InstructionTiming(self.ir, self.t)),
+        }
+        Ok(())
+    }
+
+    fn cycle_store(&mut self, getter: fn(&CPU) -> u8) -> CPUResult<()> {
+        let inst = self.ir;
+        let pins = &mut self.pins;
+        let data_in = pins.data;
+
+        match inst.mode {
+            AddressMode::ZeroPage => match self.t {
+                1 => {
+                    pins.set_addr8(inst.low);
+                    self.write_data(getter);
+                }
+                2 => (),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            },
+            AddressMode::Absolute => match self.t {
+                1 => (),
+                2 => {
+                    pins.set_addr(inst.low, inst.high);
+                    self.write_data(getter);
+                }
+                3 => (),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            },
+            AddressMode::ZeroPageX => match self.t {
+                1 => pins.set_addr8(inst.low),
+                2 => {
+                    pins.set_addr8(inst.low.wrapping_add(self.x));
+                    self.write_data(getter);
+                }
+                3 => (),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            },
+            AddressMode::ZeroPageY => match self.t {
+                1 => pins.set_addr8(inst.low),
+                2 => {
+                    pins.set_addr8(inst.low.wrapping_add(self.y));
+                    self.write_data(getter);
+                }
+                3 => (),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            },
+            AddressMode::IndirectX => match self.t {
+                1 => pins.set_addr8(inst.low),
+                2 => pins.set_addr8(inst.low.wrapping_add(self.x)),
+                3 => {
+                    self.mdr = data_in;
+                    pins.inc_addr();
+                }
+                4 => {
+                    pins.set_addr(self.mdr, data_in);
+                    self.write_data(getter);
+                }
+                5 => (),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            },
+            AddressMode::IndirectY => match self.t {
+                1 => pins.set_addr8(inst.low),
+                2 => {
+                    self.mdr = data_in;
+                    pins.inc_addr();
+                }
+                3 => pins.set_addr(self.mdr.wrapping_add(self.y), data_in),
+                4 => self.write_data(getter),
+                5 => (),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            },
+            AddressMode::AbsoluteX => match self.t {
+                1 => (),
+                2 => pins.set_addr_offset(inst.low, inst.high, self.x),
+                3 => self.write_data(getter),
+                4 => (),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            },
+            AddressMode::AbsoluteY => match self.t {
+                1 => (),
+                2 => pins.set_addr_offset(inst.low, inst.high, self.y),
+                3 => self.write_data(getter),
+                4 => (),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            },
+            _ => bail!(CPUErrorKind::InstructionExecution(self.ir)),
+        }
+
+        Ok(())
+    }
+
+    fn cycle_rmw(&mut self, action: fn(&mut CPU, u8) -> u8) -> CPUResult<()> {
+        let inst = self.ir;
+        let data = self.pins.data;
+        let addr = self.pins.addr;
+
+        match inst.mode {
+            AddressMode::ZeroPage => match self.t {
+                1 => self.pins.set_addr8(data),
+                2 => self.mdr = data,
+                3 => {
+                    let value = action(self, self.mdr);
+                    self.pins.set_data(value);
+                }
+                4 => (),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            },
+            AddressMode::Absolute => match self.t {
+                1 => self.mdr = data,
+                2 => self.pins.set_addr(self.mdr, data),
+                3 => self.mdr = data,
+                4 => {
+                    let value = action(self, self.mdr);
+                    self.pins.set_data(value);
+                }
+                5 => (),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            },
+            AddressMode::ZeroPageX => match self.t {
+                1 => self.pins.set_addr8(data),
+                2 => self.pins.set_addr8((addr as u8).wrapping_add(self.x)),
+                3 => self.mdr = data,
+                4 => {
+                    let value = action(self, self.mdr);
+                    self.pins.set_data(value);
+                }
+                5 => (),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            },
+            // AddressMode::AbsoluteX => match self.t {
+            //     1 => (),
+            //     2 => (),
+            //     3 => {
+            //         let (low, carry) = inst.low.overflowing_add(self.x);
+            //         let high = inst.high + carry as u8;
+            //         self.pins.set_addr(low, high);
+            //     }
+            //     4 => (),
+            //     5 => (),
+            //     6 => self.pins.set_data(self.mdr),
+            //     _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            // },
+            // AddressMode::ZeroPageY => match self.t {
+            //     1 => self.pins.set_addr8(data),
+            //     2 => self.pins.set_addr8((Wrapping(addr as u8) + Wrapping(self.y)).0),
+            //     3 => action(self, data),
+            //     _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            // },
+            // AddressMode::IndirectX => match self.t {
+            //     1 => self.pins.set_addr8(data),
+            //     2 => self.pins.set_addr16(addr + self.x as u16),
+            //     3 => {
+            //         self.pins.set_addr16(addr + 1);
+            //         self.mdr = data;
+            //     }
+            //     4 => self.pins.set_addr(self.mdr, data),
+            //     5 => action(self, data),
+            //     _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            // },
+            // AddressMode::IndirectY => match self.t {
+            //     1 => self.pins.set_addr8(data),
+            //     2 => {
+            //         self.mdr = data;
+            //         self.pins.set_addr16(addr + 1);
+            //     }
+            //     3 => {
+            //         let low = (Wrapping(self.mdr) + Wrapping(self.y)).0;
+            //         let carry = low < self.y;
+            //         let high = data + (carry as u8);
+            //         self.pins.set_addr(low, high);
+
+            //         if !carry {
+            //             self.current.cycles -= 1;
+            //         }
+            //     }
+            //     4 => {
+            //         if inst.cycles == 5 {
+            //             action(self, data);
+            //         }
+            //     }
+            //     5 => action(self, data),
+            //     _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            // },
+            // AddressMode::AbsoluteX => match self.t {
+            //     1 => self.mdr = data,
+            //     2 => {
+            //         let low = (Wrapping(self.mdr) + Wrapping(self.x)).0;
+            //         let carry = low < self.x;
+            //         let high = data + (carry as u8);
+            //         self.pins.set_addr(low, high);
+
+            //         if !carry {
+            //             self.current.cycles -= 1;
+            //         }
+            //     }
+            //     3 => {
+            //         if inst.cycles == 4 {
+            //             action(self, data);
+            //         }
+            //     }
+            //     4 => action(self, data),
+            //     _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            // },
+            // AddressMode::AbsoluteY => match self.t {
+            //     1 => self.mdr = data,
+            //     2 => {
+            //         let low = (Wrapping(self.mdr) + Wrapping(self.y)).0;
+            //         let carry = low < self.y;
+            //         let high = data + (carry as u8);
+            //         self.pins.set_addr(low, high);
+
+            //         if !carry {
+            //             self.current.cycles -= 1;
+            //         }
+            //     }
+            //     3 => {
+            //         if inst.cycles == 4 {
+            //             action(self, data);
+            //         }
+            //     }
+            //     4 => action(self, data),
+            //     _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            // },
+            _ => bail!(CPUErrorKind::InstructionExecution(self.ir)),
+        }
+
+        Ok(())
+    }
+
+    fn cycle_jump(&mut self) -> CPUResult<()> {
+        let inst = self.ir;
+        let data = self.pins.data;
+
+        match inst.mode {
+            AddressMode::Absolute => match self.t {
+                1 => (),
+                2 => self.set_pc(inst.low, inst.high),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            },
+            AddressMode::Indirect => match self.t {
+                1 => self.mdr = data,
+                2 => self.pins.set_addr(self.mdr, data),
+                3 => {
+                    self.mdr = data;
+                    self.pins.inc_addr();
+                }
+                4 => self.set_pc(self.mdr, data),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            },
+            _ => bail!(CPUErrorKind::InstructionExecution(inst)),
+        }
+        Ok(())
+    }
+
+    fn cycle_jsr(&mut self) -> CPUResult<()> {
+        let inst = self.ir;
+        let pins = &mut self.pins;
+
+        match inst.mode {
+            AddressMode::Absolute => match self.t {
+                1 => (),
+                2 => (),
+                3 => {
+                    pins.set_addr(self.s, CPU::STACK_PAGE);
+                    let high = (self.pc - 1 >> 8) as u8;
+                    pins.set_data((self.pc - 1 >> 8) as u8);
+                }
+                4 => {
+                    pins.dec_addr();
+                    pins.set_data((self.pc - 1) as u8);
+                    self.set_pc(inst.low, inst.high);
+                }
+                5 => (),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            },
+            _ => bail!(CPUErrorKind::InstructionExecution(inst)),
+        }
+        Ok(())
+    }
+
+    fn cycle_unimplemented(&mut self, _action: fn(&mut CPU)) -> CPUResult<()> {
+        bail!(CPUErrorKind::NotImplemented(self.ir))
+    }
+
+    /* Getters */
+
+    fn get_flags(&self) -> u8 {
+        self.flags.into()
+    }
+
+    fn get_a(&self) -> u8 {
+        self.a
+    }
+
+    fn get_x(&self) -> u8 {
+        self.x
+    }
+
+    fn get_y(&self) -> u8 {
+        self.y
+    }
+
+    /* Setters */
 
     fn set_a(&mut self, byte: u8) {
         self.a = byte;
@@ -1172,6 +1134,102 @@ impl CPU {
         self.s = byte;
     }
 
+    fn set_flags(&mut self, byte: u8) {
+        self.flags = Flags::from(byte)
+    }
+
+    /* Modifiers */
+
+    fn inc_x(&mut self) {
+        self.set_x((Wrapping(self.x) + Wrapping(1)).0)
+    }
+
+    fn inc_y(&mut self) {
+        self.set_y((Wrapping(self.y) + Wrapping(1)).0)
+    }
+
+    fn dec_x(&mut self) {
+        self.set_x((Wrapping(self.x) - Wrapping(1)).0)
+    }
+
+    fn dec_y(&mut self) {
+        self.set_y((Wrapping(self.y) - Wrapping(1)).0)
+    }
+
+    fn inc(&mut self, byte: u8) -> u8 {
+        let value = (Wrapping(byte) + Wrapping(1)).0;
+        self.flags.zero = value == 0;
+        self.flags.negative = value & 0x80 == 0x80;
+        value
+    }
+
+    fn dec(&mut self, byte: u8) -> u8 {
+        let value = (Wrapping(byte) - Wrapping(1)).0;
+        self.flags.zero = value == 0;
+        self.flags.negative = value & 0x80 == 0x80;
+        value
+    }
+
+    fn rotate_left(&mut self, byte: u8) -> u8 {
+        let old_carry = self.flags.carry as u8;
+        let new_carry = (byte & 0x80) >> 7;
+        self.flags.carry = new_carry & 1 == 1;
+
+        let result = (byte << 1) | old_carry;
+        self.flags.zero = result == 0;
+        self.flags.negative = result & 0x80 == 0x80;
+
+        result
+    }
+
+    fn rotate_right(&mut self, byte: u8) -> u8 {
+        let old_carry = self.flags.carry as u8;
+        let new_carry = byte & 1;
+        self.flags.carry = new_carry & 1 == 1;
+
+        let result = (byte >> 1) | (old_carry << 7);
+        self.flags.zero = result == 0;
+        self.flags.negative = result & 0x80 == 0x80;
+
+        result
+    }
+
+    /* Branch Conditions */
+
+    fn branch_zero(&mut self) -> bool {
+        self.flags.zero
+    }
+
+    fn branch_not_zero(&mut self) -> bool {
+        !self.flags.zero
+    }
+
+    fn branch_carry(&mut self) -> bool {
+        self.flags.carry
+    }
+
+    fn branch_not_carry(&mut self) -> bool {
+        !self.flags.carry
+    }
+
+    fn branch_overflow(&mut self) -> bool {
+        self.flags.overflow
+    }
+
+    fn branch_not_overflow(&mut self) -> bool {
+        !self.flags.overflow
+    }
+
+    fn branch_negative(&mut self) -> bool {
+        self.flags.negative
+    }
+
+    fn branch_not_negative(&mut self) -> bool {
+        !self.flags.negative
+    }
+
+    /* Flags */
+
     fn compare_a(&mut self, byte: u8) {
         self.flags.carry = self.a >= byte;
         self.flags.zero = self.a == byte;
@@ -1190,12 +1248,83 @@ impl CPU {
         self.flags.negative = self.y < byte;
     }
 
-    fn write_data(&mut self, low: u8, high: u8, data: u8) {
-        self.pins.addr = (low as u16) | ((high as u16) << 8);
-        self.pins.data = data;
-        self.pins.rw = false;
-        self.addr_write = true;
+    fn clear_carry(&mut self) {
+        self.flags.carry = false
     }
+
+    fn set_carry(&mut self) {
+        self.flags.carry = true;
+    }
+
+    fn clear_irq_disable(&mut self) {
+        self.flags.irq_disable = false
+    }
+
+    fn set_irq_disable(&mut self) {
+        self.flags.irq_disable = true;
+    }
+
+    fn clear_decimal(&mut self) {
+        self.flags.decimal = false
+    }
+
+    fn set_decimal(&mut self) {
+        self.flags.decimal = true;
+    }
+
+    fn clear_negative(&mut self) {
+        self.flags.negative = false
+    }
+
+    /* Transfers */
+
+    fn transfer_ax(&mut self) {
+        self.set_x(self.a);
+    }
+
+    fn transfer_ay(&mut self) {
+        self.set_y(self.a);
+    }
+
+    fn transfer_sx(&mut self) {
+        self.set_x(self.s);
+    }
+
+    fn transfer_xs(&mut self) {
+        self.set_s(self.x);
+    }
+
+    fn transfer_xa(&mut self) {
+        self.set_a(self.x);
+    }
+
+    fn transfer_ya(&mut self) {
+        self.set_a(self.y);
+    }
+
+    /* Logical */
+
+    fn xor(&mut self, byte: u8) {
+        self.a = self.a ^ byte;
+        self.flags.zero = self.a == 0;
+        self.flags.negative = self.a & 0x80 == 0x80;
+    }
+
+    /* Math */
+
+    fn add_with_carry(&mut self, byte: u8) {
+        let sum = self.a as u16 + byte as u16 + self.flags.carry as u16;
+        self.flags.carry = sum > 0xFF;
+        let sum = sum as u8;
+        self.flags.zero = sum == 0;
+        self.flags.overflow = (!(self.a ^ byte) & (self.a ^ sum) & 0x80) != 0;
+        self.flags.negative = sum & 0x80 == 0x80;
+        self.a = sum;
+    }
+
+    /* Misc */
+
+    fn nop(&mut self) {}
 
     fn set_pc(&mut self, low: u8, high: u8) {
         self.pc = (low as u16) | ((high as u16) << 8);
@@ -1209,19 +1338,21 @@ impl CPU {
         self.pc_write = true;
     }
 
-    fn set_addr8(&mut self, byte: u8) {
-        self.pins.addr = byte as u16;
-        self.addr_write = true;
+    fn write_data(&mut self, getter: fn(&CPU) -> u8) {
+        let data_out = getter(self);
+        self.pins.set_data(data_out);
     }
 
-    fn set_addr(&mut self, low: u8, high: u8) {
-        self.pins.addr = (low as u16) | ((high as u16) << 8);
-        self.addr_write = true;
-    }
+    fn get_relative(&self, addr: u16, offset: u8) -> (u16, bool) {
+        let low = addr as u8;
 
-    fn set_addr16(&mut self, bytes: u16) {
-        self.pins.addr = bytes;
-        self.addr_write = true;
+        let (next, carry) = match offset as i8 {
+            o if o == i8::MIN => low.overflowing_sub(i8::MAX as u8 + 1),
+            o if o < 0 => low.overflowing_sub(o.abs() as u8),
+            o => low.overflowing_add(o as u8),
+        };
+
+        ((addr & 0xFF00) | (next as u16), carry)
     }
 }
 
@@ -1253,8 +1384,8 @@ pub fn decode_bytes(bytes: &[u8], address: usize) -> CPUResult<Instruction> {
         _ => (0, 0, 0),
     };
     let mut instruction = decode(opcode)?;
-    instruction.arg1 = arg_1;
-    instruction.arg2 = arg_2;
+    instruction.low = arg_1;
+    instruction.high = arg_2;
     Ok(instruction)
 }
 
@@ -1266,24 +1397,24 @@ pub fn decode(byte: u8) -> CPUResult<Instruction> {
 }
 
 pub fn disassemble(instruction: &Instruction) -> String {
-    let arg1 = instruction.arg1;
-    let arg2 = instruction.arg2;
+    let low = instruction.low;
+    let high = instruction.high;
 
     use AddressMode::*;
     let arg_string = match instruction.mode {
-        Absolute => format!("${:02X}{:02X}", arg2, arg1),
-        AbsoluteX => format!("${:02X}{:02X},X", arg2, arg1),
-        AbsoluteY => format!("${:02X}{:02X},Y", arg2, arg1),
+        Absolute => format!("${:02X}{:02X}", high, low),
+        AbsoluteX => format!("${:02X}{:02X},X", high, low),
+        AbsoluteY => format!("${:02X}{:02X},Y", high, low),
         Accumulator => "A".to_owned(),
-        Immediate => format!("$#{:02X}", arg1),
+        Immediate => format!("$#{:02X}", low),
         Implicit => "".to_owned(),
-        Indirect => format!("(${:02X}{:02X})", arg2, arg1),
-        IndirectX => format!("(${:02X},X)", arg1),
-        IndirectY => format!("(${:02X}),Y", arg1),
-        Relative => format!("${:02X}", arg1),
-        ZeroPage => format!("${:02X}", arg1),
-        ZeroPageX => format!("${:02X},X", arg1),
-        ZeroPageY => format!("${:02X},Y", arg1),
+        Indirect => format!("(${:02X}{:02X})", high, low),
+        IndirectX => format!("(${:02X},X)", low),
+        IndirectY => format!("(${:02X}),Y", low),
+        Relative => format!("${:02X}", low),
+        ZeroPage => format!("${:02X}", low),
+        ZeroPageX => format!("${:02X},X", low),
+        ZeroPageY => format!("${:02X},Y", low),
     };
 
     format!("{} {}", instruction.name, arg_string)
@@ -1291,16 +1422,16 @@ pub fn disassemble(instruction: &Instruction) -> String {
 
 pub struct VM {
     pub cpu: CPU,
-    pub memory: [u8; 4096],
+    pub memory: [u8; 0xFFFF],
     program_end: u16,
-    error: Option<CPUError>,
+    pub error: Option<CPUError>,
 }
 
 impl Default for VM {
     fn default() -> Self {
         Self {
             cpu: CPU::new(),
-            memory: [0u8; 4096],
+            memory: [0u8; 0xFFFF],
             error: None,
             program_end: 0,
         }
@@ -1309,7 +1440,7 @@ impl Default for VM {
 
 impl VM {
     pub fn load_program(&mut self, bytes: &[u8], start: u16) {
-        let end = min(bytes.len(), 0xC00);
+        let end = min(bytes.len(), 0xFFFF);
 
         for i in 0..self.memory.len() {
             self.memory[i] = match i {
@@ -1328,10 +1459,10 @@ impl VM {
 
         if pins.addr < self.memory.len() as u16 {
             self.memory[pins.addr as usize] = pins.data;
-            if self.cpu.pc < self.program_end {
-                pins.addr = self.cpu.pc;
-                pins.data = self.memory[self.cpu.pc as usize];
-            }
+            // if self.cpu.pc < self.program_end {
+            //     pins.addr = self.cpu.pc;
+            //     pins.data = self.memory[self.cpu.pc as usize];
+            // }
         }
     }
 
@@ -1349,10 +1480,15 @@ impl VM {
         }
 
         match self.cpu.cycle() {
-            Ok(_) => match self.cpu.pins.rw {
-                true => self.bus_read(),
-                false => self.bus_write(),
-            },
+            Ok(_) => {
+                match self.cpu.pins.rw {
+                    true => self.bus_read(),
+                    false => self.bus_write(),
+                }
+                if self.cpu.pins.sync {
+                    self.bus_read();
+                }
+            }
             Err(e) => {
                 error!("cpu error: {}", e);
                 self.error = Some(e.into());
@@ -1361,735 +1497,6 @@ impl VM {
     }
 }
 
-#[allow(unused_imports)]
-#[allow(dead_code)]
-#[allow(unused_macros)]
-mod test {
-    use super::*;
-
-    type CycleCallbacks = HashMap<usize, Box<dyn Fn(&mut VM)>>;
-
-    fn run_test(
-        rom: &[u8],
-        init: impl Fn(&mut VM),
-        exit: impl Fn(&mut VM),
-        pre: CycleCallbacks,
-        post: CycleCallbacks,
-    ) {
-        let mut vm = VM::default();
-        vm.load_program(rom, 0);
-        init(&mut vm);
-
-        loop {
-            if let Some(callback) = pre.get(&(vm.cpu.cycles as usize)) {
-                callback(&mut vm);
-            }
-
-            vm.update();
-            if let Some(e) = vm.error {
-                panic!("error: {}", e.description());
-            }
-
-            if let Some(callback) = post.get(&(vm.cpu.cycles as usize)) {
-                callback(&mut vm);
-            }
-            if vm.cpu.pc >= vm.program_end && vm.cpu.t == 0 {
-                break;
-            }
-        }
-
-        exit(&mut vm);
-    }
-
-    macro_rules! cpu_test {
-        (@builder $m:expr, $i:expr, $e:expr, pre:{$($k1:expr => $v1:expr),*$(,)*}, post:{$($k2:expr => $v2:expr),*$(,)*}) => {{
-            #[allow(unused_mut)]
-            let mut pre_map: CycleCallbacks = HashMap::new();
-            $(pre_map.insert($k1, Box::new($v1));)*
-            #[allow(unused_mut)]
-            let mut post_map: CycleCallbacks = HashMap::new();
-            $(post_map.insert($k2, Box::new($v2));)*
-            run_test($m, $i, $e, pre_map, post_map)
-        }};
-        ($m:expr, init:$init:expr, post:$post:tt, exit:$exit:expr) => {
-            cpu_test!(@builder $m, $init, $exit, pre:{}, post:$post)
-        };
-        ($m:expr, pre:$pre:tt, post:$post:tt) => {
-            cpu_test!(@builder $m, |_| {}, |_| {}, pre:$pre, post:$post)
-        };
-        ($m:expr, init:$init:expr, exit:$exit:expr) => {
-            cpu_test!(@builder $m, $init, $exit, pre:{}, post:{})
-        };
-        ($m:expr, $exit:expr) => {
-            cpu_test!(@builder $m, |_| {}, $exit, pre:{}, post:{})
-        };
-        ($m:expr) => {
-            cpu_test!(@builder $m, |_| {}, |_| {}, pre:{}, post:{})
-        };
-    }
-
-    macro_rules! branch_test {
-        ($opcode:expr, branch:$branch:expr, nobranch:$nobranch:expr) => {{
-            let memory = [$opcode, 2, 0xA9, 2, 0xEA];
-            let exit = |vm: &mut VM| assert_eq!(vm.cpu.a, 1);
-            let init = |vm: &mut VM| {
-                vm.cpu.a = 1;
-                $branch(vm);
-            };
-            let mut post: CycleCallbacks = HashMap::new();
-            post.insert(3, Box::new(|vm: &mut VM| assert_eq!(vm.cpu.pc, 4)));
-            run_test(&memory, init, exit, HashMap::new(), post);
-
-            let exit = |vm: &mut VM| assert_eq!(vm.cpu.a, 2);
-            let init = |vm: &mut VM| {
-                vm.cpu.a = 2;
-                $nobranch(vm);
-            };
-            let mut post: CycleCallbacks = HashMap::new();
-            post.insert(2, Box::new(|vm: &mut VM| assert_eq!(vm.cpu.pc, 2)));
-            run_test(&memory, init, exit, HashMap::new(), post);
-
-            let nops: &[u8] = &[0xEA; 250];
-            let ops: &[u8] = &[$opcode, 4, 0xA9, 2];
-            let memory = &[nops, ops].concat();
-            let exit = |vm: &mut VM| assert_eq!(vm.cpu.a, 1);
-            let init = |vm: &mut VM| {
-                vm.cpu.a = 1;
-                vm.cpu.pc = 250;
-                vm.cpu.pins.data = vm.memory[vm.cpu.pc as usize];
-                $branch(vm);
-            };
-            let mut post: CycleCallbacks = HashMap::new();
-            post.insert(4, Box::new(|vm: &mut VM| assert_eq!(vm.cpu.pc, 0x100)));
-            run_test(&memory, init, exit, HashMap::new(), post);
-        }};
-    }
-
-    #[test]
-    fn test_ld_imm() {
-        macro_rules! ld_imm_test {
-            ($op:expr, $field:ident) => {{
-                cpu_test!(&[$op, 1], |vm: &mut VM| assert_eq!(vm.cpu.$field, 1));
-                cpu_test!(&[$op, 0],
-                    init: |vm| vm.cpu.$field = 1,
-                    exit: |vm| {
-                        assert_eq!(vm.cpu.$field, 0);
-                        assert_eq!(vm.cpu.flags, Flags { zero: true, ..Flags::default() });
-                });
-                cpu_test!(&[$op, 0x81], |vm| {
-                    assert_eq!(vm.cpu.$field, 0x81);
-                    assert_eq!(
-                        vm.cpu.flags,
-                        Flags {
-                            negative: true,
-                            ..Flags::default()
-                        }
-                    );
-                });
-            }};
-        }
-
-        ld_imm_test!(0xA9, a); // LDA #imm
-        ld_imm_test!(0xA2, x); // LDX #imm
-        ld_imm_test!(0xA0, y); // LDY #imm
-    }
-
-    #[test]
-    fn test_ld_zp() {
-        macro_rules! ld_zp_test {
-            ($op:expr, $field:ident) => {{
-                cpu_test!(&[$op, 0xF1],
-                    init: |vm: &mut VM| vm.memory[0xF1] = 1,
-                    exit: |vm: &mut VM| assert_eq!(vm.cpu.$field, 1)
-                );
-            }};
-        }
-
-        ld_zp_test!(0xA5, a); // LDA $zp
-        ld_zp_test!(0xA6, x); // LDX $zp
-        ld_zp_test!(0xA4, y); // LDY $zp
-    }
-
-    #[test]
-    fn test_ld_zpxy() {
-        macro_rules! ld_zpxy_test {
-            ($op:expr, $field:ident, $offset:ident) => {{
-                cpu_test!(&[$op, 0xF1],
-                    init: |vm: &mut VM| {
-                        vm.memory[0xF2] = 1;
-                        vm.cpu.$offset = 1;
-                    },
-                    exit: |vm: &mut VM| assert_eq!(vm.cpu.$field, 1)
-                );
-            }};
-        }
-
-        ld_zpxy_test!(0xB5, a, x);
-        ld_zpxy_test!(0xB6, x, y);
-        ld_zpxy_test!(0xB4, y, x);
-    }
-
-    #[test]
-    fn test_ld_abs() {
-        macro_rules! ld_abs_test {
-            ($op:expr, $field:ident) => {{
-                cpu_test!(&[$op, 0x01, 0x08],
-                    init: |vm: &mut VM| vm.memory[0x801] = 1,
-                    exit: |vm: &mut VM| assert_eq!(vm.cpu.$field, 1)
-                );
-            }};
-        }
-
-        ld_abs_test!(0xAD, a); // LDA $abs
-        ld_abs_test!(0xAE, x); // LDX $abs
-        ld_abs_test!(0xAC, y); // LDY $abs
-    }
-
-    #[test]
-    fn test_ld_absxy() {
-        macro_rules! ld_absxy_test {
-            ($op:expr, $field:ident, $offset:ident) => {{
-                cpu_test!(&[$op, 0x01, 0x08],
-                    init: |vm: &mut VM| {
-                        vm.memory[0x802] = 1;
-                        vm.cpu.$offset = 1;
-                    },
-                    exit: |vm: &mut VM| assert_eq!(vm.cpu.$field, 1)
-                );
-            }};
-        }
-
-        ld_absxy_test!(0xBD, a, x); // LDA $abs, x
-        ld_absxy_test!(0xB9, a, y); // LDA $abs, y
-        ld_absxy_test!(0xBE, x, y); // LDX $abs, y
-        ld_absxy_test!(0xBC, y, x); // LDY $abs, x
-    }
-
-    #[test]
-    fn test_ld_indxy() {
-        // 0xA1 => instruction!(0xA1, &"LDA", 2, 6, AddressMode::IndirectX),
-        // 0xB1 => instruction!(0xB1, &"LDA", 2, 5, AddressMode::IndirectY),
-
-        cpu_test!(&[0xA1, 0x80],
-            init: |vm: &mut VM| {
-                vm.memory[0x81] = 0x01;
-                vm.memory[0x82] = 0x09;
-                vm.memory[0x901] = 1;
-                vm.cpu.x = 1;
-            },
-            exit: |vm| assert_eq!(vm.cpu.a, 1)
-        );
-
-        cpu_test!(&[0xB1, 0x80],
-            init: |vm: &mut VM| {
-                vm.memory[0x80] = 0x01;
-                vm.memory[0x81] = 0x09;
-                vm.memory[0x902] = 1;
-                vm.cpu.y = 1;
-            },
-            exit: |vm| assert_eq!(vm.cpu.a, 1)
-        );
-
-        // ld_indx_test!(0xA1, a, x); // LDA $(ind,x)
-        // ld_indx_test!(0xB1, a, y); // LDA $(ind), y)
-    }
-
-    #[test]
-    fn test_flags() {
-        // TODO 0xB8 CLN
-        cpu_test!(&[0xF8, 0x78, 0x38, 0xD8, 0x58, 0x18],
-            pre: {
-                0 => |vm| assert!(!vm.cpu.flags.decimal),
-                2 => |vm| assert!(!vm.cpu.flags.irq_disable),
-                4 => |vm| assert!(!vm.cpu.flags.carry),
-            },
-            post: {
-                2 => |vm| assert!(vm.cpu.flags.decimal),
-                4 => |vm| assert!(vm.cpu.flags.irq_disable),
-                6 => |vm| assert!(vm.cpu.flags.carry),
-                8 => |vm| assert!(!vm.cpu.flags.decimal),
-                10 => |vm| assert!(!vm.cpu.flags.irq_disable),
-                12 => |vm| assert!(!vm.cpu.flags.carry),
-            }
-        );
-    }
-
-    #[test]
-    fn test_transfer() {
-        // TAX
-        cpu_test!(&[0xAA],
-            init: |vm| vm.cpu.a = 1,
-            exit: |vm| {
-                assert_eq!(vm.cpu.x, 1);
-                assert_eq!(vm.cpu.flags, Flags::default());
-            }
-        );
-        cpu_test!(&[0xAA],
-            init: |vm| vm.cpu.a = 0xEE,
-            exit: |vm| {
-                assert_eq!(vm.cpu.x, 0xEE);
-                assert_eq!(vm.cpu.flags, Flags {negative: true, ..Flags::default()});
-            }
-        );
-        cpu_test!(&[0xAA],
-            init: |vm| {
-                vm.cpu.a = 0;
-                vm.cpu.x = 1;
-            },
-            exit: |vm| {
-                assert_eq!(vm.cpu.x, 0);
-                assert_eq!(vm.cpu.flags, Flags {zero: true, ..Flags::default()});
-            }
-        );
-
-        // TAY
-        cpu_test!(&[0xA8],
-            init: |vm| vm.cpu.a = 1,
-            exit: |vm| {
-                assert_eq!(vm.cpu.y, 1);
-                assert_eq!(vm.cpu.flags, Flags::default());
-            }
-        );
-        cpu_test!(&[0xA8],
-            init: |vm| vm.cpu.a = 0xEE,
-            exit: |vm| {
-                assert_eq!(vm.cpu.y, 0xEE);
-                assert_eq!(vm.cpu.flags, Flags {negative: true, ..Flags::default()});
-            }
-        );
-        cpu_test!(&[0xA8],
-            init: |vm| {
-                vm.cpu.a = 0;
-                vm.cpu.y = 1;
-            },
-            exit: |vm| {
-                assert_eq!(vm.cpu.y, 0);
-                assert_eq!(vm.cpu.flags, Flags {zero: true, ..Flags::default()});
-            }
-        );
-
-        // TSX
-        cpu_test!(&[0xBA],
-            init: |vm| vm.cpu.s = 1,
-            exit: |vm| {
-                assert_eq!(vm.cpu.x, 1);
-                assert_eq!(vm.cpu.flags, Flags::default());
-            }
-        );
-        cpu_test!(&[0xBA],
-            init: |vm| vm.cpu.s = 0xEE,
-            exit: |vm| {
-                assert_eq!(vm.cpu.x, 0xEE);
-                assert_eq!(vm.cpu.flags, Flags {negative: true, ..Flags::default()});
-            }
-        );
-        cpu_test!(&[0xBA],
-            init: |vm| {
-                vm.cpu.s = 0;
-                vm.cpu.x = 1;
-            },
-            exit: |vm| {
-                assert_eq!(vm.cpu.x, 0);
-                assert_eq!(vm.cpu.flags, Flags {zero: true, ..Flags::default()});
-            }
-        );
-
-        // TXA
-        cpu_test!(&[0x8A],
-            init: |vm| vm.cpu.x = 1,
-            exit: |vm| {
-                assert_eq!(vm.cpu.a, 1);
-                assert_eq!(vm.cpu.flags, Flags::default());
-            }
-        );
-        cpu_test!(&[0x8A],
-            init: |vm| vm.cpu.x = 0xEE,
-            exit: |vm| {
-                assert_eq!(vm.cpu.a, 0xEE);
-                assert_eq!(vm.cpu.flags, Flags {negative: true, ..Flags::default()});
-            }
-        );
-        cpu_test!(&[0x8A],
-            init: |vm| {
-                vm.cpu.x = 0;
-                vm.cpu.a = 1;
-            },
-            exit: |vm| {
-                assert_eq!(vm.cpu.a, 0);
-                assert_eq!(vm.cpu.flags, Flags {zero: true, ..Flags::default()});
-            }
-        );
-
-        // TXS
-        cpu_test!(&[0x9A],
-            init: |vm| vm.cpu.x = 1,
-            exit: |vm| {
-                assert_eq!(vm.cpu.s, 1);
-                assert_eq!(vm.cpu.flags, Flags::default());
-            }
-        );
-        cpu_test!(&[0x9A],
-            init: |vm| vm.cpu.x = 0xEE,
-            exit: |vm| {
-                assert_eq!(vm.cpu.s, 0xEE);
-                assert_eq!(vm.cpu.flags, Flags::default());
-            }
-        );
-        cpu_test!(&[0x9A],
-            init: |vm| {
-                vm.cpu.x = 0;
-                vm.cpu.s = 1;
-            },
-            exit: |vm| {
-                assert_eq!(vm.cpu.s, 0);
-                assert_eq!(vm.cpu.flags, Flags::default());
-            }
-        );
-
-        // TYA
-        cpu_test!(&[0x98],
-            init: |vm| vm.cpu.y = 1,
-            exit: |vm| {
-                assert_eq!(vm.cpu.a, 1);
-                assert_eq!(vm.cpu.flags, Flags::default());
-            }
-        );
-        cpu_test!(&[0x98],
-            init: |vm| vm.cpu.y = 0xEE,
-            exit: |vm| {
-                assert_eq!(vm.cpu.a, 0xEE);
-                assert_eq!(vm.cpu.flags, Flags {negative: true, ..Flags::default()});
-            }
-        );
-        cpu_test!(&[0x98],
-            init: |vm| {
-                vm.cpu.y = 0;
-                vm.cpu.a = 1;
-            },
-            exit: |vm| {
-                assert_eq!(vm.cpu.a, 0);
-                assert_eq!(vm.cpu.flags, Flags {zero: true, ..Flags::default()});
-            }
-        );
-    }
-
-    #[test]
-    fn test_store() {
-        // STA $abs
-        cpu_test!(&[0xA9, 1, 0x8D, 0x11, 0x0D, 0xA9, 2],
-            init: |vm| vm.cpu.a = 1,
-            exit: |vm| {
-                assert_eq!(vm.cpu.a, 2);
-                assert_eq!(vm.memory[0x0D11], 1);
-        });
-    }
-
-    #[test]
-    fn test_jump() {
-        // 0x6C => instruction!(0x6C, &"JMP", 3, 5, AddressMode::Indirect),
-        // JMP $abs
-        cpu_test!(&[0x4C, 5, 0, 0xA9, 2, 0xA9, 1], |vm| {
-            assert_eq!(vm.cpu.a, 1);
-            assert_eq!(vm.cpu.cycles, 5);
-        });
-    }
-
-    #[test]
-    fn test_branch() {
-        // BNE $rel
-        branch_test!(0xD0,
-            branch: |vm: &mut VM| vm.cpu.flags.zero = false,
-            nobranch: |vm: &mut VM| vm.cpu.flags.zero = true
-        );
-        // BEQ $rel
-        branch_test!(0xF0,
-            branch: |vm: &mut VM| vm.cpu.flags.zero = true,
-            nobranch: |vm: &mut VM| vm.cpu.flags.zero = false
-        );
-        // BPL $rel
-        branch_test!(0x10,
-            branch: |vm: &mut VM| vm.cpu.flags.negative = false,
-            nobranch: |vm: &mut VM| vm.cpu.flags.negative = true
-        );
-        // BVC $rel
-        branch_test!(0x50,
-            branch: |vm: &mut VM| vm.cpu.flags.overflow = false,
-            nobranch: |vm: &mut VM| vm.cpu.flags.overflow = true
-        );
-        // BVS $rel
-        branch_test!(0x70,
-            branch: |vm: &mut VM| vm.cpu.flags.overflow = true,
-            nobranch: |vm: &mut VM| vm.cpu.flags.overflow = false
-        );
-    }
-
-    #[test]
-    fn test_inc_dec() {
-        // DEX
-        cpu_test!(&[0xCA],
-            init: |vm| vm.cpu.x = 2,
-            exit: |vm| {
-                assert_eq!(vm.cpu.x, 1);
-                assert!(!vm.cpu.flags.zero);
-                assert!(!vm.cpu.flags.negative);
-        });
-        cpu_test!(&[0xCA],
-            init: |vm| vm.cpu.x = 1,
-            exit: |vm| {
-                assert_eq!(vm.cpu.x, 0);
-                assert!(vm.cpu.flags.zero);
-                assert!(!vm.cpu.flags.negative);
-        });
-        cpu_test!(&[0xCA],
-            init: |vm| vm.cpu.x = 0,
-            exit: |vm| {
-                assert_eq!(vm.cpu.x, 0xFF);
-                assert!(!vm.cpu.flags.zero);
-                assert!(vm.cpu.flags.negative);
-        });
-    }
-
-    #[test]
-    fn test_compare() {
-        // 0xC9 CMP #imm
-        cpu_test!(&[0xC9, 1],
-            init: |vm| vm.cpu.a = 1,
-            exit: |vm| assert_eq!(vm.cpu.flags, Flags {zero: true, carry: true, ..Flags::default()})
-        );
-        cpu_test!(&[0xC9, 1],
-            init: |vm| vm.cpu.a = 2,
-            exit: |vm| assert_eq!(vm.cpu.flags, Flags {carry: true, ..Flags::default()})
-        );
-        cpu_test!(&[0xC9, 2],
-            init: |vm| vm.cpu.a = 1,
-            exit: |vm| assert_eq!(vm.cpu.flags, Flags {negative: true, ..Flags::default()})
-        );
-
-        // 0xC0 CPY #imm
-        cpu_test!(&[0xC0, 1],
-            init: |vm| vm.cpu.y = 1,
-            exit: |vm| assert_eq!(vm.cpu.flags, Flags {zero: true, carry: true, ..Flags::default()})
-        );
-        cpu_test!(&[0xC0, 1],
-            init: |vm| vm.cpu.y = 2,
-            exit: |vm| assert_eq!(vm.cpu.flags, Flags {carry: true, ..Flags::default()})
-        );
-        cpu_test!(&[0xC0, 2],
-            init: |vm| vm.cpu.y = 1,
-            exit: |vm| assert_eq!(vm.cpu.flags, Flags {negative: true, ..Flags::default()})
-        );
-
-        // 0xE0 CPX $imm
-        cpu_test!(&[0xE0, 1],
-            init: |vm| vm.cpu.x = 1,
-            exit: |vm| assert_eq!(vm.cpu.flags, Flags {zero: true, carry: true, ..Flags::default()})
-        );
-        cpu_test!(&[0xE0, 1],
-            init: |vm| vm.cpu.x = 2,
-            exit: |vm| assert_eq!(vm.cpu.flags, Flags {carry: true, ..Flags::default()})
-        );
-        cpu_test!(&[0xE0, 2],
-            init: |vm| vm.cpu.x = 1,
-            exit: |vm| assert_eq!(vm.cpu.flags, Flags {negative: true, ..Flags::default()})
-        );
-
-        // 0xCD CMP $abs
-        cpu_test!(&[0xCD, 0x00, 0x09],
-            init: |vm| {vm.cpu.a = 1; vm.memory[0x900] = 1;},
-            exit: |vm| assert_eq!(vm.cpu.flags, Flags {zero: true, carry: true, ..Flags::default()})
-        );
-        cpu_test!(&[0xCD, 0x00, 0x09],
-            init: |vm| {vm.cpu.a = 2; vm.memory[0x900] = 1;},
-            exit: |vm| assert_eq!(vm.cpu.flags, Flags {carry: true, ..Flags::default()})
-        );
-        cpu_test!(&[0xCD, 0x00, 0x09],
-            init: |vm| {vm.cpu.a = 1; vm.memory[0x900] = 2;},
-            exit: |vm| assert_eq!(vm.cpu.flags, Flags {negative: true, ..Flags::default()})
-        );
-
-        // 0xEC CPX $imm
-        cpu_test!(&[0xEC, 0x00, 0x09],
-            init: |vm| {vm.cpu.x = 1; vm.memory[0x900] = 1;},
-            exit: |vm| assert_eq!(vm.cpu.flags, Flags {zero: true, carry: true, ..Flags::default()})
-        );
-        cpu_test!(&[0xEC, 0x00, 0x09],
-            init: |vm| {vm.cpu.x = 2; vm.memory[0x900] = 1;},
-            exit: |vm| assert_eq!(vm.cpu.flags, Flags {carry: true, ..Flags::default()})
-        );
-        cpu_test!(&[0xEC, 0x00, 0x09],
-            init: |vm| {vm.cpu.x = 1; vm.memory[0x900] = 2;},
-            exit: |vm| assert_eq!(vm.cpu.flags, Flags {negative: true, ..Flags::default()})
-        );
-
-        // 0xEC CPY $imm
-        cpu_test!(&[0xCC, 0x00, 0x09],
-            init: |vm| {vm.cpu.y = 1; vm.memory[0x900] = 1;},
-            exit: |vm| assert_eq!(vm.cpu.flags, Flags {zero: true, carry: true, ..Flags::default()})
-        );
-        cpu_test!(&[0xCC, 0x00, 0x09],
-            init: |vm| {vm.cpu.y = 2; vm.memory[0x900] = 1;},
-            exit: |vm| assert_eq!(vm.cpu.flags, Flags {carry: true, ..Flags::default()})
-        );
-        cpu_test!(&[0xCC, 0x00, 0x09],
-            init: |vm| {vm.cpu.y = 1; vm.memory[0x900] = 2;},
-            exit: |vm| assert_eq!(vm.cpu.flags, Flags {negative: true, ..Flags::default()})
-        );
-    }
-
-    #[test]
-    fn test_math() {
-        // 0x65 => instruction!(0x65, &"ADC", 2, 3, AddressMode::ZeroPage),
-        // 0x75 => instruction!(0x75, &"ADC", 2, 4, AddressMode::ZeroPageX),
-        // 0x6D => instruction!(0x6D, &"ADC", 3, 4, AddressMode::Absolute),
-        // 0x7D => instruction!(0x7D, &"ADC", 3, 4, AddressMode::AbsoluteX),
-        // 0x79 => instruction!(0x79, &"ADC", 3, 4, AddressMode::AbsoluteY),
-        // 0x61 => instruction!(0x61, &"ADC", 2, 6, AddressMode::IndirectX),
-        // 0x71 => instruction!(0x71, &"ADC", 2, 5, AddressMode::IndirectY),
-        // 0xE9 => instruction!(0xE9, &"SBC", 2, 2, AddressMode::Immediate),
-        // 0xE5 => instruction!(0xE5, &"SBC", 2, 3, AddressMode::ZeroPage),
-        // 0xF5 => instruction!(0xF5, &"SBC", 2, 4, AddressMode::ZeroPageX),
-        // 0xED => instruction!(0xED, &"SBC", 3, 4, AddressMode::Absolute),
-        // 0xFD => instruction!(0xFD, &"SBC", 3, 4, AddressMode::AbsoluteX),
-        // 0xF9 => instruction!(0xF9, &"SBC", 3, 4, AddressMode::AbsoluteY),
-        // 0xE1 => instruction!(0xE1, &"SBC", 2, 6, AddressMode::IndirectX),
-        // 0xF1 => instruction!(0xF1, &"SBC", 2, 4, AddressMode::IndirectY),
-        // 0x69 ADC $imm
-        cpu_test!(&[0x69, 1],
-            init: |vm| vm.cpu.a = 1,
-            exit: |vm| {
-                assert!(!vm.cpu.flags.zero);
-                assert!(!vm.cpu.flags.negative);
-                assert!(!vm.cpu.flags.overflow);
-                assert!(!vm.cpu.flags.carry);
-                assert_eq!(vm.cpu.a, 2);
-        });
-        // 0x69 ADC $imm
-        cpu_test!(&[0x69, 1],
-            init: |vm| vm.cpu.a = 0xFF,
-            exit: |vm| {
-                assert!(vm.cpu.flags.zero);
-                assert!(vm.cpu.flags.carry);
-                assert!(!vm.cpu.flags.overflow);
-                assert!(!vm.cpu.flags.negative);
-                assert_eq!(vm.cpu.a, 0);
-        });
-        // 0x69 ADC $imm
-        cpu_test!(&[0x69, 1],
-            init: |vm| vm.cpu.a = 0x7F,
-            exit: |vm| {
-                assert!(vm.cpu.flags.overflow);
-                assert!(vm.cpu.flags.negative);
-                assert!(!vm.cpu.flags.zero);
-                assert!(!vm.cpu.flags.carry);
-                assert_eq!(vm.cpu.a, 0x80);
-        });
-    }
-
-    #[test]
-    fn test_bitwise() {
-        // 0x45 => instruction!(0x45, &"EOR", 2, 3, AddressMode::ZeroPage),
-        // 0x55 => instruction!(0x55, &"EOR", 2, 4, AddressMode::ZeroPageX),
-        // 0x4D => instruction!(0x4D, &"EOR", 3, 4, AddressMode::Absolute),
-        // 0x5D => instruction!(0x5D, &"EOR", 3, 4, AddressMode::AbsoluteX),
-        // 0x59 => instruction!(0x59, &"EOR", 3, 4, AddressMode::AbsoluteY),
-        // 0x41 => instruction!(0x41, &"EOR", 2, 6, AddressMode::IndirectX),
-        // 0x51 => instruction!(0x51, &"EOR", 2, 5, AddressMode::IndirectY),
-        // 0x09 => instruction!(0x09, &"ORA", 2, 2, AddressMode::Immediate),
-        // 0x05 => instruction!(0x05, &"ORA", 2, 3, AddressMode::ZeroPage),
-        // 0x15 => instruction!(0x15, &"ORA", 2, 4, AddressMode::ZeroPageX),
-        // 0x0D => instruction!(0x0D, &"ORA", 3, 4, AddressMode::Absolute),
-        // 0x1D => instruction!(0x1D, &"ORA", 3, 4, AddressMode::AbsoluteX),
-        // 0x19 => instruction!(0x19, &"ORA", 3, 4, AddressMode::AbsoluteY),
-        // 0x01 => instruction!(0x01, &"ORA", 2, 6, AddressMode::IndirectX),
-        // 0x11 => instruction!(0x11, &"ORA", 2, 5, AddressMode::IndirectY),
-
-        // 0x49 EOR $imm
-        cpu_test!(&[0x49, 0b01010101],
-            init: |vm| vm.cpu.a = 0b10101010,
-            exit: |vm| {
-                assert!(!vm.cpu.flags.zero);
-                assert!(vm.cpu.flags.negative);
-                assert!(!vm.cpu.flags.overflow);
-                assert!(!vm.cpu.flags.carry);
-                assert_eq!(vm.cpu.a, 0b11111111);
-        });
-        // 0x49 EOR $imm
-        cpu_test!(&[0x49, 0b10101010],
-            init: |vm| vm.cpu.a = 0b10101010,
-            exit: |vm| {
-                assert!(vm.cpu.flags.zero);
-                assert!(!vm.cpu.flags.negative);
-                assert!(!vm.cpu.flags.overflow);
-                assert!(!vm.cpu.flags.carry);
-                assert_eq!(vm.cpu.a, 0b00000000);
-        });
-    }
-
-    #[test]
-    fn test_stack() {
-        // 0x48 PHA
-        cpu_test!(&[0x48, 0x48],
-            init: |vm| vm.cpu.a = 1,
-            exit: |vm| {
-                assert_eq!(vm.cpu.s, 0xFD);
-                assert_eq!(vm.memory[0x01FF], 1);
-                assert_eq!(vm.memory[0x01FE], 1);
-        });
-        // 0x68 PLA
-        cpu_test!(&[0x68, 0x68],
-            init: |vm| {
-                vm.cpu.s = 0xFD;
-                vm.memory[0x01FF] = 0xEF;
-                vm.memory[0x01FE] = 0xEE;
-            },
-            exit: |vm| {
-                assert_eq!(vm.cpu.s, 0xFF);
-                assert_eq!(vm.cpu.a, 0xEF);
-                assert_eq!(vm.cpu.flags, Flags {negative: true, ..Flags::default()});
-        });
-        // 0x68 PLA
-        cpu_test!(&[0x68],
-            init: |vm| {
-                vm.cpu.s = 0xFE;
-                vm.memory[0x01FF] = 0;
-            },
-            exit: |vm| {
-                assert_eq!(vm.cpu.s, 0xFF);
-                assert_eq!(vm.cpu.a, 0);
-                assert_eq!(vm.cpu.flags, Flags {zero: true, ..Flags::default()});
-        });
-
-        // 0x08 PHP
-        cpu_test!(&[0x08],
-            init: |vm| {
-                vm.cpu.flags.carry= true;
-                vm.cpu.flags.zero= true;
-                vm.cpu.flags.irq_disable= true;
-                vm.cpu.flags.decimal= true;
-                vm.cpu.flags.overflow= true;
-                vm.cpu.flags.negative= true;
-            },
-            exit: |vm| {
-                assert_eq!(vm.cpu.s, 0xFE);
-                assert_eq!(vm.memory[0x01FF], 0b11111111);
-        });
-
-        // PLP
-        cpu_test!(&[0x28],
-            init: |vm| {
-                vm.cpu.s = 0xFE;
-                vm.memory[0x01FF] = 0b11001111;
-            },
-            exit: |vm| {
-                assert_eq!(vm.cpu.s, 0xFF);
-                assert_eq!(vm.cpu.flags, Flags {
-                    carry: true,
-                    zero: true,
-                    irq_disable: true,
-                    decimal: true,
-                    overflow: true,
-                    negative: true,
-                });
-        });
-    }
-}
+#[cfg(test)]
+#[path = "./cpu_tests.rs"]
+mod cpu_tests;

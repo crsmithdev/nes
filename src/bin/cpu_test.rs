@@ -41,23 +41,27 @@ fn main() {
 
     loop {
         vm.update();
-        if vm.cpu.cycles % 100 == 0 {
-            info!(
-                "cycle {} @ {:#04X} -> {}",
-                vm.cpu.cycles, vm.cpu.pc, vm.cpu.current
-            );
+        if vm.cpu.cycles % 1 == 0 {
+            // info!(
+            //     "cycle {} @ {:#04X} -> {}",
+            //     vm.cpu.cycles, vm.cpu.pc, vm.cpu.current
+            // );
         }
-        if vm.cpu.current_addr == trap_addr {
+        if let Some(err) = vm.error {
+            error!("cpu error: {}", err);
+            break;
+        }
+        if vm.cpu.ir_addr == trap_addr {
             trap_counter += 1;
             if trap_counter > 20 {
                 error!(
                     "trap detected: cycle {} @ {:#04X} -> {} ({:?})",
-                    vm.cpu.cycles, vm.cpu.current_addr, vm.cpu.current, vm.cpu
+                    vm.cpu.cycles, vm.cpu.ir_addr, vm.cpu.ir, vm.cpu
                 );
                 break;
             }
         } else {
-            trap_addr = vm.cpu.current_addr;
+            trap_addr = vm.cpu.ir_addr;
             trap_counter = 0;
         }
     }
