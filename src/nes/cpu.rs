@@ -1,4 +1,4 @@
-use std::{cmp::min, cmp::max, collections::HashMap, fmt, num::Wrapping};
+use std::{cmp::min, collections::HashMap, fmt, num::Wrapping};
 
 error_chain! {
     types {
@@ -65,7 +65,7 @@ lazy_static! {
         0x16 => instruction!(0x16, &"ASL", 2, 6, AddressMode::ZeroPageX),
         0x0E => instruction!(0x0E, &"ASL", 3, 6, AddressMode::Absolute),
         0x1E => instruction!(0x1E, &"ASL", 3, 7, AddressMode::AbsoluteX),
-        0x24 => instruction!(0x24, &"BIT", 2, 3, AddressMode::ZeroPageX),
+        0x24 => instruction!(0x24, &"BIT", 2, 3, AddressMode::ZeroPage),
         0x2C => instruction!(0x2C, &"BIT", 3, 4, AddressMode::Absolute),
         0x10 => instruction!(0x10, &"BPL", 2, 4, AddressMode::Relative),
         0x30 => instruction!(0x30, &"BMI", 2, 4, AddressMode::Relative),
@@ -516,8 +516,8 @@ impl CPU {
             0x16 /* ASL $zp,x    */ => self.cycle_unimplemented(CPU::nop),
             0x0E /* ASL $abs     */ => self.cycle_unimplemented(CPU::nop),
             0x1E /* ASL $abs,x   */ => self.cycle_unimplemented(CPU::nop),
-            0x24 /* BIT $zp,x    */ => self.cycle_unimplemented(CPU::nop),
-            0x2C /* BIT $abs     */ => self.cycle_unimplemented(CPU::nop),
+            0x24 /* BIT $zp,x    */ => self.cycle_memop(CPU::bit),
+            0x2C /* BIT $abs     */ => self.cycle_memop(CPU::bit),
             0x10 /* BPL $rel     */ => self.cycle_branch(CPU::branch_not_negative),
             0x30 /* BMI $rel     */ => self.cycle_branch(CPU::branch_negative),
             0x50 /* BVC $rel     */ => self.cycle_branch(CPU::branch_not_overflow),
@@ -585,20 +585,20 @@ impl CPU {
             0xB4 /* LDY $zp,x    */ => self.cycle_memop(CPU::set_y),
             0xAC /* LDY $abs     */ => self.cycle_memop(CPU::set_y),
             0xBC /* LDY $abs,y   */ => self.cycle_memop(CPU::set_y),
-            0x4A /* LSR A        */ => self.cycle_unimplemented(CPU::nop),
+            0x4A /* LSR A        */ => self.cycle_memop(CPU::set_y),
             0x46 /* LSR $zp      */ => self.cycle_unimplemented(CPU::nop),
             0x56 /* LSR $zp,x    */ => self.cycle_unimplemented(CPU::nop),
             0x4E /* LSR $abs     */ => self.cycle_unimplemented(CPU::nop),
             0x5E /* LSR $abs,x   */ => self.cycle_unimplemented(CPU::nop),
             0xEA /* NOP          */ => self.cycle_implied(CPU::nop),
-            0x09 /* ORA #imm     */ => self.cycle_unimplemented(CPU::nop),
-            0x05 /* ORA $zp      */ => self.cycle_unimplemented(CPU::nop),
-            0x15 /* ORA $zp,x    */ => self.cycle_unimplemented(CPU::nop),
-            0x0D /* ORA $abs     */ => self.cycle_unimplemented(CPU::nop),
-            0x1D /* ORA $abs,x   */ => self.cycle_unimplemented(CPU::nop),
-            0x19 /* ORA $abs,y   */ => self.cycle_unimplemented(CPU::nop),
-            0x01 /* ORA $(ind,x) */ => self.cycle_unimplemented(CPU::nop),
-            0x11 /* ORA $(ind),y */ => self.cycle_unimplemented(CPU::nop),
+            0x09 /* ORA #imm     */ => self.cycle_memop(CPU::or),
+            0x05 /* ORA $zp      */ => self.cycle_memop(CPU::or),
+            0x15 /* ORA $zp,x    */ => self.cycle_memop(CPU::or),
+            0x0D /* ORA $abs     */ => self.cycle_memop(CPU::or),
+            0x1D /* ORA $abs,x   */ => self.cycle_memop(CPU::or),
+            0x19 /* ORA $abs,y   */ => self.cycle_memop(CPU::or),
+            0x01 /* ORA $(ind,x) */ => self.cycle_memop(CPU::or),
+            0x11 /* ORA $(ind),y */ => self.cycle_memop(CPU::or),
             0xAA /* TAX          */ => self.cycle_implied(CPU::transfer_ax),
             0x8A /* TXA          */ => self.cycle_implied(CPU::transfer_xa),
             0xCA /* DEX          */ => self.cycle_implied(CPU::dec_x),
@@ -1068,7 +1068,6 @@ impl CPU {
                 2 => (),
                 3 => {
                     pins.set_addr(self.s, CPU::STACK_PAGE);
-                    let high = (self.pc - 1 >> 8) as u8;
                     pins.set_data((self.pc - 1 >> 8) as u8);
                 }
                 4 => {
@@ -1312,6 +1311,19 @@ impl CPU {
         self.flags.negative = self.a & 0x80 == 0x80;
     }
 
+    fn or(&mut self, byte: u8) {
+        self.a = self.a | byte;
+        self.flags.zero = self.a == 0;
+        self.flags.negative = self.a & 0x80 == 0x80;
+    }
+
+    fn bit(&mut self, byte: u8) {
+        let value = self.a & byte;
+        self.flags.zero = value == 0;
+        self.flags.overflow = value & 0x40 == 0x40;
+        self.flags.negative = value & 0x80 == 0x80;
+    }
+
     /* Math */
 
     fn add_with_carry(&mut self, byte: u8) {
@@ -1476,14 +1488,10 @@ impl VM {
     }
 
     fn bus_write(&mut self) {
-        let mut pins = &mut self.cpu.pins;
+        let pins = &mut self.cpu.pins;
 
         if pins.addr < self.memory.len() as u16 {
             self.memory[pins.addr as usize] = pins.data;
-            // if self.cpu.pc < self.program_end {
-            //     pins.addr = self.cpu.pc;
-            //     pins.data = self.memory[self.cpu.pc as usize];
-            // }
         }
     }
 

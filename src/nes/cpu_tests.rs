@@ -237,36 +237,105 @@ fn test_and_abs() {
 }
 
 #[test]
-fn test_load_absxy() {
-    macro_rules! ld_absxy_test {
-        ($op:expr, $field:ident, $offset:ident) => {{
-            cpu_test!(&[$op, 0x01, 0x08],
-                init: |vm: &mut VM| {
-                    vm.memory[0x802] = 1;
-                    vm.cpu.$offset = 1;
-                },
-                exit: |vm: &mut VM| {
-                    assert_eq!(vm.cpu.$field, 1);
-                    assert_eq!(vm.cpu.cycles, 4);
-                }
-            );
-            cpu_test!(&[$op, 0xEE, 0x08],
-                init: |vm: &mut VM| {
-                    vm.memory[0x90E] = 1;
-                    vm.cpu.$offset = 0x20;
-                },
-                exit: |vm: &mut VM| {
-                    assert_eq!(vm.cpu.$field, 1);
-                    assert_eq!(vm.cpu.cycles, 5);
-                }
-            );
-        }};
-    }
+fn test_ora_absx() {
+    cpu_test!(&[0x1D, 0x01, 0x08],
+        init: |vm: &mut VM| {
+            vm.memory[0x802] = 0b00101010;
+            vm.cpu.a = 0b01010101;
+            vm.cpu.x = 1;
+        },
+        exit: |vm: &mut VM| {
+            assert_eq!(vm.cpu.a, 0b01111111);
+            assert_eq!(vm.cpu.flags, Flags::default());
+    });
+    cpu_test!(&[0x1D, 0x01, 0x08],
+        init: |vm: &mut VM| {
+            vm.memory[0x802] = 0b00000000;
+            vm.cpu.a = 0b00000000;
+            vm.cpu.x = 1;
+        },
+        exit: |vm: &mut VM| {
+            assert_eq!(vm.cpu.a, 0);
+            assert_eq!(vm.cpu.flags, Flags {zero: true, ..Flags::default()});
+    });
+    cpu_test!(&[0x1D, 0x01, 0x08],
+        init: |vm: &mut VM| {
+            vm.memory[0x802] = 0b10000000;
+            vm.cpu.a = 0b11111111;
+            vm.cpu.x = 1;
+        },
+        exit: |vm: &mut VM| {
+            assert_eq!(vm.cpu.a, 0xFF);
+            assert_eq!(vm.cpu.flags, Flags {negative: true, ..Flags::default()});
+    });
+}
 
-    ld_absxy_test!(0xBD, a, x); // LDA $abs, x
-    ld_absxy_test!(0xB9, a, y); // LDA $abs, y
-    ld_absxy_test!(0xBE, x, y); // LDX $abs, y
-    ld_absxy_test!(0xBC, y, x); // LDY $abs, x
+#[test]
+fn test_eor_absy() {
+    cpu_test!(&[0x59, 0x01, 0x08],
+        init: |vm: &mut VM| {
+            vm.memory[0x802] = 0b10101011;
+            vm.cpu.a = 0b11010101;
+            vm.cpu.y = 1;
+        },
+        exit: |vm: &mut VM| {
+            assert_eq!(vm.cpu.a, 0b01111110);
+            assert_eq!(vm.cpu.flags, Flags::default());
+    });
+    cpu_test!(&[0x59, 0x01, 0x08],
+        init: |vm: &mut VM| {
+            vm.memory[0x802] = 0b00000000;
+            vm.cpu.a = 0b00000000;
+            vm.cpu.y = 1;
+        },
+        exit: |vm: &mut VM| {
+            assert_eq!(vm.cpu.a, 0);
+            assert_eq!(vm.cpu.flags, Flags {zero: true, ..Flags::default()});
+    });
+    cpu_test!(&[0x59, 0x01, 0x08],
+        init: |vm: &mut VM| {
+            vm.memory[0x802] = 0b00000000;
+            vm.cpu.a = 0b11111111;
+            vm.cpu.y = 1;
+        },
+        exit: |vm: &mut VM| {
+            assert_eq!(vm.cpu.a, 0xFF);
+            assert_eq!(vm.cpu.flags, Flags {negative: true, ..Flags::default()});
+    });
+}
+
+#[test]
+fn test_bit_zp() {
+    cpu_test!(&[0x24, 0xF1], // 1
+        init: |vm| {
+            vm.cpu.a = 0b01111111;
+            vm.memory[0xF1] = 0b10111111;
+        },
+        exit: |vm| assert_eq!(vm.cpu.flags, Flags::default())
+    );
+    cpu_test!(&[0x24, 0xF1], // 0
+        init: |vm| {
+            vm.cpu.a = 0b10101010;
+            vm.memory[0xF1] = 0b01010101;
+        },
+        exit: |vm| assert_eq!(vm.cpu.flags, Flags {zero: true, ..Flags::default()})
+    );
+    cpu_test!(&[0x24, 0xF1], // 1
+        init: |vm| {
+            vm.cpu.a = 0b11111111;
+            vm.memory[0xF1] = 0b11000000;
+        },
+        exit: |vm| assert_eq!(vm.cpu.flags, Flags {negative: true, overflow: true, ..Flags::default()})
+    );
+    // cpu_test!(&[0x65, 0xF1], // 2
+    //     init: |vm| {
+    //         vm.cpu.a = 0xFF;
+    //         vm.memory[0xF1] = 2;
+    //     },
+    //     exit: |vm| {
+    //         assert_eq!(vm.cpu.a, 1);
+    //         assert_eq!(vm.cpu.flags, Flags {carry: true, ..Flags::default()});
+    // });
 }
 
 #[test]
