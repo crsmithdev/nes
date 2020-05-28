@@ -224,12 +224,12 @@ impl Pins {
 
 impl fmt::Display for Pins {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let bus = format!("address: {:#04X}, data: {:#02X}", self.addr, self.data);
+        let bus = format!("addr: {:04X}, data: {:02X}", self.addr, self.data);
         let flags = format!(
             "irq: {}, rdy: {}, res: {}, rw: {}, sync: {}",
             self.irq as u8, self.irq as u8, self.irq as u8, self.irq as u8, self.irq as u8
         );
-        f.write_str(&format!("{{{}, {}}}", bus, flags))
+        f.write_str(&format!("{}, {}", bus, flags))
     }
 }
 
@@ -277,6 +277,10 @@ impl Pins {
         self.addr = self.addr.wrapping_add(0x100)
     }
 
+    fn dec_addr_page(&mut self) {
+        self.addr = self.addr.wrapping_sub(0x100)
+    }
+
     fn set_addr_offset_nocarry(&mut self, low: u8, high: u8, offset: u8) -> bool {
         let (low, carry) = low.overflowing_add(offset);
         let high = high;
@@ -322,14 +326,15 @@ pub struct Instruction {
 impl fmt::Display for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&format!(
-            "{{{:#04X}|{} ({}, {:?}){}}}",
+            "{:04X} ({}, {:?}, {}b, {}c){}",
             self.opcode,
             self.name,
-            self.bytes,
             self.mode,
+            self.bytes,
+            self.cycles,
             match self.bytes {
-                2 => format!(" {}", self.low),
-                3 => format!(" {}, {}", self.low, self.high),
+                2 => format!(" {:02X}", self.low),
+                3 => format!(" {:02X}{:02X}", self.high, self.low),
                 _ => format!(""),
             }
         ))
@@ -344,6 +349,25 @@ pub struct Flags {
     pub decimal: bool,
     pub overflow: bool,
     pub negative: bool,
+}
+
+impl fmt::Display for Flags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&format!(
+            "C:{}, Z:{}, I:{}, D:{}, O:{}, N:{}",
+            self.carry as u8,
+            self.zero as u8,
+            self.irq_disable as u8,
+            self.decimal as u8,
+            self.overflow as u8,
+            self.negative as u8,
+        ))
+        // let bus = format!("addr: {:#04X}, data: {:#02X}", self.addr, self.data);
+        // let flags = format!(
+        //     "irq: {}, rdy: {}, res: {}, rw: {}, sync: {}",
+        //     self.irq as u8, self.irq as u8, self.irq as u8, self.irq as u8, self.irq as u8
+        // );
+    }
 }
 
 impl From<u8> for Flags {
@@ -425,17 +449,29 @@ impl CPU {
 
     /* Instruction Execution */
 
-    pub fn cycle(&mut self) -> CPUResult<()> {
+    fn log_cycle(&self, text: &str) {
+        let registers = format!(
+            "a:{:02X}, x:{:02X}, y:{:02X}, s:{:02X}, pc:{:04X}",
+            self.a, self.x, self.y, self.s, self.pc,
+        );
         trace!(
-            "begin cycle {} [t{}->], pins: {}, ir: {}",
+            "{} {} [t{}->] {}, pins: {{{}}}, flags: {{{}}}, ir: {} @ {:04X}, mdr: {:02X}",
+            text,
             self.cycles,
             self.t,
+            registers,
             self.pins,
-            self.ir
+            self.flags,
+            self.ir,
+            self.ir_addr,
+            self.mdr,
         );
+    }
+
+    pub fn cycle(&mut self) -> CPUResult<()> {
+        self.log_cycle("begin");
 
         self.pins.cycle_reset();
-        self.jumped = false;
 
         let result = match self.t {
             0 => self.new_instruction(),
@@ -450,12 +486,12 @@ impl CPU {
                 self.t = 0;
                 if !self.jumped {
                     self.pc = self.ir_addr + self.ir.bytes as u16;
-                    self.jumped = false;
                 }
                 self.pins.set_addr16(self.pc);
                 self.pins.sync = true;
+                self.pins.rw = true;
             }
-            t if t < self.ir.bytes => {
+            t if t < self.ir.bytes - 1 => {
                 self.t += 1;
                 if self.pins.rw && !self.pins.addr_changed() {
                     self.pc += 1;
@@ -465,19 +501,14 @@ impl CPU {
             _ => self.t += 1,
         }
 
-        trace!(
-            "end cycle {} [->t{}], pins: {}, ir: {}",
-            self.cycles,
-            self.t,
-            self.pins,
-            self.ir
-        );
+        self.log_cycle("end");
         self.cycles += 1;
 
         result
     }
 
     fn new_instruction(&mut self) -> CPUResult<()> {
+        self.jumped = false;
         self.mdr = 0;
         self.ir_addr = self.pins.addr;
         self.ir = decode(self.pins.data)?;
@@ -512,10 +543,10 @@ impl CPU {
             0x21 /* AND $(ind,x) */ => self.cycle_memop(CPU::and),
             0x31 /* AND $(ind),y */ => self.cycle_memop(CPU::and),
             0x0A /* ASL A        */ => self.cycle_unimplemented(CPU::nop),
-            0x06 /* ASL $zp      */ => self.cycle_unimplemented(CPU::nop),
-            0x16 /* ASL $zp,x    */ => self.cycle_unimplemented(CPU::nop),
-            0x0E /* ASL $abs     */ => self.cycle_unimplemented(CPU::nop),
-            0x1E /* ASL $abs,x   */ => self.cycle_unimplemented(CPU::nop),
+            0x06 /* ASL $zp      */ => self.cycle_rmw(CPU::shift_left),
+            0x16 /* ASL $zp,x    */ => self.cycle_rmw(CPU::shift_left),
+            0x0E /* ASL $abs     */ => self.cycle_rmw(CPU::shift_left),
+            0x1E /* ASL $abs,x   */ => self.cycle_rmw(CPU::shift_left),
             0x24 /* BIT $zp,x    */ => self.cycle_memop(CPU::bit),
             0x2C /* BIT $abs     */ => self.cycle_memop(CPU::bit),
             0x10 /* BPL $rel     */ => self.cycle_branch(CPU::branch_not_negative),
@@ -585,11 +616,11 @@ impl CPU {
             0xB4 /* LDY $zp,x    */ => self.cycle_memop(CPU::set_y),
             0xAC /* LDY $abs     */ => self.cycle_memop(CPU::set_y),
             0xBC /* LDY $abs,y   */ => self.cycle_memop(CPU::set_y),
-            0x4A /* LSR A        */ => self.cycle_memop(CPU::set_y),
-            0x46 /* LSR $zp      */ => self.cycle_unimplemented(CPU::nop),
-            0x56 /* LSR $zp,x    */ => self.cycle_unimplemented(CPU::nop),
-            0x4E /* LSR $abs     */ => self.cycle_unimplemented(CPU::nop),
-            0x5E /* LSR $abs,x   */ => self.cycle_unimplemented(CPU::nop),
+            0x4A /* LSR A        */ => self.cycle_unimplemented(CPU::nop),
+            0x46 /* LSR $zp      */ => self.cycle_rmw(CPU::shift_right),
+            0x56 /* LSR $zp,x    */ => self.cycle_rmw(CPU::shift_right),
+            0x4E /* LSR $abs     */ => self.cycle_rmw(CPU::shift_right),
+            0x5E /* LSR $abs,x   */ => self.cycle_rmw(CPU::shift_right),
             0xEA /* NOP          */ => self.cycle_implied(CPU::nop),
             0x09 /* ORA #imm     */ => self.cycle_memop(CPU::or),
             0x05 /* ORA $zp      */ => self.cycle_memop(CPU::or),
@@ -618,8 +649,8 @@ impl CPU {
             0x6E /* ROR $abs     */ => self.cycle_rmw(CPU::rotate_right),
             0x7E /* ROR $abs,x   */ => self.cycle_rmw(CPU::rotate_right),
             0x40 /* RTI          */ => self.cycle_unimplemented(CPU::nop),
-            0x60 /* RTS          */ => self.cycle_unimplemented(CPU::nop),
-            0xE9 /* SBC #imm     */ => self.cycle_unimplemented(CPU::nop),
+            0x60 /* RTS          */ => self.cycle_rts(),
+            0xE9 /* SBC #imm     */ => self.cycle_memop(CPU::sub_with_carry),
             0xE5 /* SBC $zp      */ => self.cycle_memop(CPU::sub_with_carry),
             0xF5 /* SBC $zp,x    */ => self.cycle_memop(CPU::sub_with_carry),
             0xED /* SBC $abs     */ => self.cycle_memop(CPU::sub_with_carry),
@@ -760,20 +791,26 @@ impl CPU {
         let inst = self.ir;
 
         match self.t {
-            1 => {
-                if !branch(self) {
-                    self.ir.cycles = 2
+            1 => match branch(self) {
+                false => self.ir.cycles = 2,
+                true => {
+                    let (addr, carry) = self.get_relative(self.pc + 1, inst.low);
+                    self.set_pc16(addr);
+                    self.ir.cycles -= !carry as u8;
+                    self.mdr = carry as u8;
                 }
-            }
-            2 => {
-                let (addr, carry) = self.get_relative(self.pc, inst.low);
-                self.set_pc16(addr);
-                self.ir.cycles -= !carry as u8;
-            }
-            3 => match self.ir.low {
-                l if l & 0x80 == 0x80 => self.set_pc16(self.pc - 0x100),
-                _ => self.set_pc16(self.pc + 0x100),
             },
+            2 => match self.mdr {
+                0 => (),
+                _ => {
+                    match inst.low {
+                        o if o & 0x80 == 0x80 => self.pins.dec_addr_page(),
+                        _ => self.pins.inc_addr_page(),
+                    }
+                    self.set_pc16(self.pins.addr);
+                }
+            },
+            3 => (),
             _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
         }
 
@@ -784,9 +821,7 @@ impl CPU {
         match self.t {
             1 => {
                 let data = action(self);
-                self.pins.set_addr(self.s, CPU::STACK_PAGE);
-                self.pins.set_data(data);
-                self.s = self.s.wrapping_sub(1); // (Wrapping(self.s) - Wrapping(1)).0;
+                self.stack_push(data);
             }
             2 => (),
             _ => bail!(CPUErrorKind::InstructionTiming(self.ir, self.t)),
@@ -799,10 +834,7 @@ impl CPU {
 
         match self.t {
             1 => (),
-            2 => {
-                self.s = self.s.wrapping_add(1); // (Wrapping(self.s) + Wrapping(1)).0;
-                self.pins.set_addr(self.s, CPU::STACK_PAGE)
-            }
+            2 => self.stack_pull(),
             3 => action(self, data),
             _ => bail!(CPUErrorKind::InstructionTiming(self.ir, self.t)),
         }
@@ -933,100 +965,24 @@ impl CPU {
                 5 => (),
                 _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
             },
-            // AddressMode::AbsoluteX => match self.t {
-            //     1 => (),
-            //     2 => (),
-            //     3 => {
-            //         let (low, carry) = inst.low.overflowing_add(self.x);
-            //         let high = inst.high + carry as u8;
-            //         self.pins.set_addr(low, high);
-            //     }
-            //     4 => (),
-            //     5 => (),
-            //     6 => self.pins.set_data(self.mdr),
-            //     _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
-            // },
-            // AddressMode::ZeroPageY => match self.t {
-            //     1 => self.pins.set_addr8(data),
-            //     2 => self.pins.set_addr8((Wrapping(addr as u8) + Wrapping(self.y)).0),
-            //     3 => action(self, data),
-            //     _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
-            // },
+            AddressMode::AbsoluteX => match self.t {
+                1 => (),
+                2 => (),
+                3 => {
+                    let (low, carry) = inst.low.overflowing_add(self.x);
+                    let high = inst.high + carry as u8;
+                    self.pins.set_addr(low, high);
+                }
+                4 => self.mdr = data,
+                5 => {
+                    let value = action(self, self.mdr);
+                    self.pins.set_data(value);
+                }
+                6 => (),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            },
             // AddressMode::IndirectX => match self.t {
-            //     1 => self.pins.set_addr8(data),
-            //     2 => self.pins.set_addr16(addr + self.x as u16),
-            //     3 => {
-            //         self.pins.set_addr16(addr + 1);
-            //         self.mdr = data;
-            //     }
-            //     4 => self.pins.set_addr(self.mdr, data),
-            //     5 => action(self, data),
-            //     _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
-            // },
             // AddressMode::IndirectY => match self.t {
-            //     1 => self.pins.set_addr8(data),
-            //     2 => {
-            //         self.mdr = data;
-            //         self.pins.set_addr16(addr + 1);
-            //     }
-            //     3 => {
-            //         let low = (Wrapping(self.mdr) + Wrapping(self.y)).0;
-            //         let carry = low < self.y;
-            //         let high = data + (carry as u8);
-            //         self.pins.set_addr(low, high);
-
-            //         if !carry {
-            //             self.current.cycles -= 1;
-            //         }
-            //     }
-            //     4 => {
-            //         if inst.cycles == 5 {
-            //             action(self, data);
-            //         }
-            //     }
-            //     5 => action(self, data),
-            //     _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
-            // },
-            // AddressMode::AbsoluteX => match self.t {
-            //     1 => self.mdr = data,
-            //     2 => {
-            //         let low = (Wrapping(self.mdr) + Wrapping(self.x)).0;
-            //         let carry = low < self.x;
-            //         let high = data + (carry as u8);
-            //         self.pins.set_addr(low, high);
-
-            //         if !carry {
-            //             self.current.cycles -= 1;
-            //         }
-            //     }
-            //     3 => {
-            //         if inst.cycles == 4 {
-            //             action(self, data);
-            //         }
-            //     }
-            //     4 => action(self, data),
-            //     _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
-            // },
-            // AddressMode::AbsoluteY => match self.t {
-            //     1 => self.mdr = data,
-            //     2 => {
-            //         let low = (Wrapping(self.mdr) + Wrapping(self.y)).0;
-            //         let carry = low < self.y;
-            //         let high = data + (carry as u8);
-            //         self.pins.set_addr(low, high);
-
-            //         if !carry {
-            //             self.current.cycles -= 1;
-            //         }
-            //     }
-            //     3 => {
-            //         if inst.cycles == 4 {
-            //             action(self, data);
-            //         }
-            //     }
-            //     4 => action(self, data),
-            //     _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
-            // },
             _ => bail!(CPUErrorKind::InstructionExecution(self.ir)),
         }
 
@@ -1060,22 +1016,41 @@ impl CPU {
 
     fn cycle_jsr(&mut self) -> CPUResult<()> {
         let inst = self.ir;
-        let pins = &mut self.pins;
 
         match inst.mode {
             AddressMode::Absolute => match self.t {
                 1 => (),
                 2 => (),
                 3 => {
-                    pins.set_addr(self.s, CPU::STACK_PAGE);
-                    pins.set_data((self.pc - 1 >> 8) as u8);
+                    let data = (self.pc >> 8) as u8;
+                    self.stack_push(data);
                 }
                 4 => {
-                    pins.dec_addr();
-                    pins.set_data((self.pc - 1) as u8);
-                    self.set_pc(inst.low, inst.high);
+                    let data = self.pc as u8;
+                    self.stack_push(data);
                 }
-                5 => (),
+                5 => self.set_pc(inst.low, inst.high),
+                _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
+            },
+            _ => bail!(CPUErrorKind::InstructionExecution(inst)),
+        }
+        Ok(())
+    }
+
+    fn cycle_rts(&mut self) -> CPUResult<()> {
+        let inst = self.ir;
+        let data_in = self.pins.data;
+
+        match inst.mode {
+            AddressMode::Implicit => match self.t {
+                1 => self.pins.set_addr16(self.pc),
+                2 => self.stack_pull(),
+                3 => {
+                    self.mdr = data_in;
+                    self.stack_pull();
+                }
+                4 => self.set_pc(self.mdr, data_in),
+                5 => self.set_pc16(self.pc + 1),
                 _ => bail!(CPUErrorKind::InstructionTiming(inst, self.t)),
             },
             _ => bail!(CPUErrorKind::InstructionExecution(inst)),
@@ -1163,30 +1138,6 @@ impl CPU {
         self.flags.zero = value == 0;
         self.flags.negative = value & 0x80 == 0x80;
         value
-    }
-
-    fn rotate_left(&mut self, byte: u8) -> u8 {
-        let old_carry = self.flags.carry as u8;
-        let new_carry = (byte & 0x80) >> 7;
-        self.flags.carry = new_carry & 1 == 1;
-
-        let result = (byte << 1) | old_carry;
-        self.flags.zero = result == 0;
-        self.flags.negative = result & 0x80 == 0x80;
-
-        result
-    }
-
-    fn rotate_right(&mut self, byte: u8) -> u8 {
-        let old_carry = self.flags.carry as u8;
-        let new_carry = byte & 1;
-        self.flags.carry = new_carry & 1 == 1;
-
-        let result = (byte >> 1) | (old_carry << 7);
-        self.flags.zero = result == 0;
-        self.flags.negative = result & 0x80 == 0x80;
-
-        result
     }
 
     /* Branch Conditions */
@@ -1324,6 +1275,50 @@ impl CPU {
         self.flags.negative = value & 0x80 == 0x80;
     }
 
+    fn rotate_left(&mut self, byte: u8) -> u8 {
+        let old_carry = self.flags.carry as u8;
+        let new_carry = (byte & 0x80) >> 7;
+        self.flags.carry = new_carry & 1 == 1;
+
+        let result = (byte << 1) | old_carry;
+        self.flags.zero = result == 0;
+        self.flags.negative = result & 0x80 == 0x80;
+
+        result
+    }
+
+    fn rotate_right(&mut self, byte: u8) -> u8 {
+        let old_carry = self.flags.carry as u8;
+        let new_carry = byte & 1;
+        self.flags.carry = new_carry & 1 == 1;
+
+        let result = (byte >> 1) | (old_carry << 7);
+        self.flags.zero = result == 0;
+        self.flags.negative = result & 0x80 == 0x80;
+
+        result
+    }
+
+    fn shift_left(&mut self, byte: u8) -> u8 {
+        let result = byte << 1;
+
+        self.flags.carry = byte & 0x80 == 0x80;
+        self.flags.zero = result == 0;
+        self.flags.negative = result & 0x80 == 0x80;
+
+        result
+    }
+
+    fn shift_right(&mut self, byte: u8) -> u8 {
+        let result = byte >> 1;
+
+        self.flags.carry = byte & 1 == 1;
+        self.flags.zero = result == 0;
+        self.flags.negative = result & 0x80 == 0x80;
+
+        result
+    }
+
     /* Math */
 
     fn add_with_carry(&mut self, byte: u8) {
@@ -1352,6 +1347,19 @@ impl CPU {
         self.flags.overflow = (!(self.a ^ byte) & (self.a ^ diff) & 0x80) != 0;
         self.flags.negative = diff & 0x80 == 0x80;
         self.a = diff;
+    }
+
+    /* Stack */
+
+    fn stack_push(&mut self, byte: u8) {
+        self.pins.set_addr(self.s, CPU::STACK_PAGE);
+        self.pins.set_data(byte);
+        self.s = self.s.wrapping_sub(1);
+    }
+
+    fn stack_pull(&mut self) {
+        self.s = self.s.wrapping_add(1);
+        self.pins.set_addr(self.s, CPU::STACK_PAGE)
     }
 
     /* Misc */
@@ -1489,18 +1497,24 @@ impl VM {
 
     fn bus_write(&mut self) {
         let pins = &mut self.cpu.pins;
+        self.memory[pins.addr as usize] = pins.data;
 
-        if pins.addr < self.memory.len() as u16 {
-            self.memory[pins.addr as usize] = pins.data;
-        }
+        trace!(
+            "wrote data: {:02X} @ {:04X}",
+            pins.data,
+            pins.addr
+        )
     }
 
     fn bus_read(&mut self) {
-        let pins = &self.cpu.pins;
+        let pins = &mut self.cpu.pins;
+        pins.data = self.memory[pins.addr as usize];
 
-        if pins.addr < self.memory.len() as u16 {
-            self.cpu.pins.data = self.memory[self.cpu.pins.addr as usize];
-        }
+        trace!(
+            "read data: {:02X} @ {:04X}",
+            pins.data,
+            pins.addr
+        )
     }
 
     pub fn update(&mut self) {
@@ -1509,19 +1523,14 @@ impl VM {
         }
 
         match self.cpu.cycle() {
-            Ok(_) => {
-                match self.cpu.pins.rw {
-                    true => self.bus_read(),
-                    false => self.bus_write(),
-                }
-                if self.cpu.pins.sync {
-                    self.bus_read();
-                }
-            }
             Err(e) => {
-                error!("cpu error: {}", e);
+                error!("cycle error: {}", e);
                 self.error = Some(e.into());
             }
+            Ok(_) => match self.cpu.pins.rw {
+                true => self.bus_read(),
+                false => self.bus_write(),
+            },
         }
     }
 }
