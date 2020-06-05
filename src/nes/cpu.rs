@@ -788,7 +788,7 @@ impl CPU {
             1 => match branch(self) {
                 false => self.ir.cycles = 2,
                 true => {
-                    let (addr, carry) = self.find_addr_relative(self.pc + 1, inst.low);
+                    let (addr, carry) = self.offset_addr_relative(self.pc + 1, inst.low);
                     self.set_pc16(addr);
                     self.ir.cycles -= !carry as u8;
                     self.mdr = carry as u8;
@@ -1506,7 +1506,7 @@ impl CPU {
         self.pins.set_data(data_out);
     }
 
-    fn find_addr_relative(&self, addr: u16, offset: u8) -> (u16, bool) {
+    fn offset_addr_relative(&self, addr: u16, offset: u8) -> (u16, bool) {
         let low = addr as u8;
 
         let (next, carry) = match offset as i8 {
@@ -1518,18 +1518,17 @@ impl CPU {
         ((addr & 0xFF00) | (next as u16), carry)
     }
 
-    // fn set_addr_offset_nocarry(&mut self, low: u8, high: u8, offset: u8) -> bool {
-    //     let (low, carry) = low.overflowing_add(offset);
-    //     let high = high;
-    //     self.set_addr(low, high);
-    //     carry
-    // }
+    fn offset_addr_nocarry(&mut self, low: u8, high: u8, offset: u8) -> (u16, bool) {
+        let (low, carry) = low.overflowing_add(offset);
+        let high = high;
+        ((low as u16) | ((high as u16) << 8), carry)
+    }
 
-    // fn set_addr_offset(&mut self, low: u8, high: u8, offset: u8) {
-    //     let (low, carry) = low.overflowing_add(offset);
-    //     let high = high + carry as u8;
-    //     self.set_addr(low, high);
-    // }
+    fn offset_addr(&mut self, low: u8, high: u8, offset: u8) -> u16 {
+        let (low, carry) = low.overflowing_add(offset);
+        let high = high + carry as u8;
+        (low as u16) | ((high as u16) << 8)
+    }
 }
 
 /*
