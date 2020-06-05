@@ -41,12 +41,6 @@ fn main() {
 
     loop {
         vm.update();
-        if vm.cpu.cycles % 1 == 0 {
-            // info!(
-            //     "cycle {} @ {:#04X} -> {}",
-            //     vm.cpu.cycles, vm.cpu.pc, vm.cpu.current
-            // );
-        }
         if let Some(err) = vm.error {
             error!("cpu error: {}", err);
             break;

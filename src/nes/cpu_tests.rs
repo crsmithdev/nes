@@ -355,6 +355,132 @@ fn test_bit_zp() {
     // });
 }
 
+#[test]
+fn test_adc_decimal() {
+    cpu_test!(&[0x69, 0x99],
+        init: |vm| {
+            vm.cpu.a = 0x99;
+            vm.cpu.flags.decimal = true;
+            vm.cpu.flags.carry = true;
+        },
+        exit: |vm| {
+            assert_eq!(vm.cpu.a, 0x99);
+    })
+}
+
+macro_rules! sbc_dec {
+    ($a:expr, $b:expr, $carry:expr, $eq:expr, $flags:expr) => {{
+        let mut f = $flags.clone();
+        f.decimal = true;
+        cpu_test!(&[0xE9, $b],
+            init: |vm: &mut VM| {
+                vm.cpu.a = $a;
+                vm.cpu.flags.carry = $carry;
+                vm.cpu.flags.decimal = true;
+            },
+            exit: |vm: &mut VM| {
+                assert_eq!(vm.cpu.a, $eq);
+                assert_eq!(vm.cpu.flags, f);
+        });
+    }};
+}
+
+#[test]
+fn test_sbc_decimal() {
+    sbc_dec!(
+        0x0,
+        0x0,
+        false,
+        0x99,
+        Flags {
+            negative: true,
+            ..Flags::default()
+        }
+    );
+    sbc_dec!(
+        0x0,
+        0x0,
+        true,
+        0x0,
+        Flags {
+            zero: true,
+            carry: true,
+            ..Flags::default()
+        }
+    );
+    sbc_dec!(
+        0x0,
+        0x1,
+        true,
+        0x99,
+        Flags {
+            negative: true,
+            ..Flags::default()
+        }
+    );
+    sbc_dec!(
+        0xA,
+        0x0,
+        true,
+        0xA,
+        Flags {
+            carry: true,
+            ..Flags::default()
+        }
+    );
+    sbc_dec!(
+        0xB,
+        0x0,
+        false,
+        0xA,
+        Flags {
+            carry: true,
+            ..Flags::default()
+        }
+    );
+    sbc_dec!(
+        0x9A,
+        0x0,
+        true,
+        0x9A,
+        Flags {
+            negative: true,
+            carry: true,
+            ..Flags::default()
+        }
+    );
+    sbc_dec!(
+        0x9B,
+        0x0,
+        false,
+        0x9A,
+        Flags {
+            negative: true,
+            carry: true,
+            ..Flags::default()
+        }
+    );
+    // sbc_dec!(0, 0, 0, false, Flags {zero: true, ..Flags::default()});
+    // cpu_test!(&[0xE9, 0],
+    //     init: |vm| {
+    //         vm.cpu.a = 0x99;
+    //         vm.cpu.flags.decimal = true;
+    //         //vm.cpu.flags.carry = true;
+    //     },
+    //     exit: |vm| {
+    //         assert_eq!(vm.cpu.a, 0x98);
+    // });
+    // cpu_test!(&[0xE9, 0],
+    //     init: |vm| {
+    //         vm.cpu.a = 0;
+    //         vm.cpu.flags.decimal = true;
+    //         //vm.cpu.flags.carry = true;
+    //     },
+    //     exit: |vm| {
+    //         assert_eq!(vm.cpu.a, 0x99);
+    // })
+}
+
 /* Write ops */
 
 #[test]
